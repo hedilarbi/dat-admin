@@ -50,10 +50,10 @@ export default function InscriptionDetailPage() {
   const [causesOpen, setCausesOpen] = useState(true);
 
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState<'approve' | 'decision' | 'suspendu' | 'bloque' | null>(null);
+  const [actionLoading, setActionLoading] = useState<'approve' | 'decision' | 'valide' | 'suspendu' | 'bloque' | null>(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [confirmAction, setConfirmAction] = useState<{ type: 'approve' } | { type: 'status'; status: 'suspendu' | 'bloque' } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ type: 'approve' } | { type: 'status'; status: 'valide' | 'suspendu' | 'bloque' } | null>(null);
 
   const fetchUser = async () => {
     try {
@@ -126,7 +126,7 @@ export default function InscriptionDetailPage() {
     }
   };
 
-  const handleUpdateUserStatus = async (newStatus: 'suspendu' | 'bloque') => {
+  const handleUpdateUserStatus = async (newStatus: 'valide' | 'suspendu' | 'bloque') => {
     if (!selectedUser) return;
     setError('');
     setActionLoading(newStatus);
@@ -325,7 +325,7 @@ export default function InscriptionDetailPage() {
             </div>
           )}
 
-          {selectedUser.status !== 'soumis' && selectedUser.status !== 'valide' && (
+          {selectedUser.status !== 'soumis' && !['valide', 'suspendu', 'bloque'].includes(selectedUser.status) && (
             <div className="text-xs text-[#9a917d] italic mb-2">
               Ce dossier a déjà été traité, aucune action de décision n'est disponible.
             </div>
@@ -405,27 +405,45 @@ export default function InscriptionDetailPage() {
             </form>
           )}
 
-          {selectedUser.status === 'valide' && (
+          {['valide', 'suspendu', 'bloque'].includes(selectedUser.status) && (
             <div className="border-t border-[#efece3] pt-4 space-y-2">
               <div className="text-xs text-gray-500 font-semibold mb-2">Actions de maintenance :</div>
-              <button
-                type="button"
-                onClick={() => setConfirmAction({ type: 'status', status: 'suspendu' })}
-                disabled={actionLoading !== null}
-                className="w-full py-2 bg-[#d9704f] hover:bg-[#c26040] text-white font-bold rounded-[8px] text-xs uppercase cursor-pointer transition disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {actionLoading === 'suspendu' && <Spinner />}
-                ⏸ Suspendre le compte
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmAction({ type: 'status', status: 'bloque' })}
-                disabled={actionLoading !== null}
-                className="w-full py-2 bg-black hover:bg-gray-800 text-white font-bold rounded-[8px] text-xs uppercase cursor-pointer transition disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {actionLoading === 'bloque' && <Spinner />}
-                🚫 Bloquer définitivement
-              </button>
+
+              {(selectedUser.status === 'suspendu' || selectedUser.status === 'bloque') && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmAction({ type: 'status', status: 'valide' })}
+                  disabled={actionLoading !== null}
+                  className="w-full py-2 bg-[#2f6f4f] hover:bg-emerald-800 text-white font-bold rounded-[8px] text-xs uppercase cursor-pointer transition disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {actionLoading === 'valide' && <Spinner />}
+                  ✓ {selectedUser.status === 'bloque' ? 'Débloquer le compte' : 'Réactiver le compte'}
+                </button>
+              )}
+
+              {selectedUser.status !== 'suspendu' && selectedUser.status !== 'bloque' && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmAction({ type: 'status', status: 'suspendu' })}
+                  disabled={actionLoading !== null}
+                  className="w-full py-2 bg-[#d9704f] hover:bg-[#c26040] text-white font-bold rounded-[8px] text-xs uppercase cursor-pointer transition disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {actionLoading === 'suspendu' && <Spinner />}
+                  ⏸ Suspendre le compte
+                </button>
+              )}
+
+              {selectedUser.status !== 'bloque' && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmAction({ type: 'status', status: 'bloque' })}
+                  disabled={actionLoading !== null}
+                  className="w-full py-2 bg-black hover:bg-gray-800 text-white font-bold rounded-[8px] text-xs uppercase cursor-pointer transition disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {actionLoading === 'bloque' && <Spinner />}
+                  🚫 Bloquer définitivement
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -440,7 +458,7 @@ export default function InscriptionDetailPage() {
             : `Changer le statut du compte en "${confirmAction?.status}" ?`
         }
         confirmLabel={confirmAction?.type === 'approve' ? 'Valider' : 'Confirmer'}
-        danger={confirmAction?.type === 'status'}
+        danger={confirmAction?.type === 'status' && confirmAction.status !== 'valide'}
         onCancel={() => setConfirmAction(null)}
         onConfirm={() => {
           if (confirmAction?.type === 'approve') handleApproveUser();
