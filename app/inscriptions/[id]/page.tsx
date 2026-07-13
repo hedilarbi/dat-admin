@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { apiRequest } from '../../api';
 import Alert from '../../components/Alert';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import Spinner from '../../components/Spinner';
+import ConfirmModal from '../../components/ConfirmModal';
 import { Badge, getInscriptionStatusBadge } from '../../components/StatusBadge';
 import DocumentReceivedCard from '../../components/DocumentReceivedCard';
 
@@ -48,8 +50,10 @@ export default function InscriptionDetailPage() {
   const [causesOpen, setCausesOpen] = useState(true);
 
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<'approve' | 'decision' | 'suspendu' | 'bloque' | null>(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [confirmAction, setConfirmAction] = useState<{ type: 'approve' } | { type: 'status'; status: 'suspendu' | 'bloque' } | null>(null);
 
   const fetchUser = async () => {
     try {
@@ -79,14 +83,15 @@ export default function InscriptionDetailPage() {
 
   const handleApproveUser = async () => {
     if (!selectedUser) return;
-    if (!window.confirm('Valider définitivement ce compte professionnel ?')) return;
     setError('');
     setMessage('');
+    setActionLoading('approve');
     try {
       await apiRequest(`/admin/users/${selectedUser._id}/validate`, { method: 'POST' });
       router.push('/inscriptions');
     } catch (err: any) {
       setError(err.message || 'Erreur lors de la validation');
+      setActionLoading(null);
     }
   };
 
@@ -100,6 +105,7 @@ export default function InscriptionDetailPage() {
 
     setError('');
     setMessage('');
+    setActionLoading('decision');
     try {
       const actionUrl = decisionMode === 'correction'
         ? `/admin/users/${selectedUser._id}/request-correction`
@@ -116,13 +122,14 @@ export default function InscriptionDetailPage() {
       router.push('/inscriptions');
     } catch (err: any) {
       setError(err.message || 'Erreur lors du traitement de la décision');
+      setActionLoading(null);
     }
   };
 
-  const handleUpdateUserStatus = async (newStatus: string) => {
+  const handleUpdateUserStatus = async (newStatus: 'suspendu' | 'bloque') => {
     if (!selectedUser) return;
-    if (!window.confirm(`Changer le statut du compte en "${newStatus}" ?`)) return;
     setError('');
+    setActionLoading(newStatus);
     try {
       await apiRequest(`/admin/users/${selectedUser._id}/status`, {
         method: 'PUT',
@@ -132,6 +139,8 @@ export default function InscriptionDetailPage() {
       setSelectedUser({ ...selectedUser, status: newStatus as any });
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -288,29 +297,39 @@ export default function InscriptionDetailPage() {
             Décision administrateur
           </div>
 
-          <div className="grid grid-cols-3 gap-2 mb-5">
-            <button
-              type="button"
-              onClick={handleApproveUser}
-              className="py-2 rounded-[8px] bg-[#2f6f4f] hover:bg-emerald-800 text-white font-bold text-xs uppercase transition cursor-pointer select-none text-center"
-            >
-              Valider
-            </button>
-            <button
-              type="button"
-              onClick={() => { setDecisionMode('correction'); setError(''); setMessage(''); }}
-              className={`py-2 rounded-[8px] font-bold text-xs uppercase transition cursor-pointer select-none text-center ${decisionMode === 'correction' ? 'bg-[#d9704f] text-white ring-2 ring-offset-1 ring-[#d9704f]' : 'bg-[#faf1e4] text-[#b3893f] hover:bg-[#f5e7d4]'}`}
-            >
-              Correction
-            </button>
-            <button
-              type="button"
-              onClick={() => { setDecisionMode('refuser'); setError(''); setMessage(''); }}
-              className={`py-2 rounded-[8px] font-bold text-xs uppercase transition cursor-pointer select-none text-center ${decisionMode === 'refuser' ? 'bg-[#9a3b2f] text-white ring-2 ring-offset-1 ring-[#9a3b2f]' : 'bg-[#fbeae7] text-[#9a3b2f] hover:bg-[#f7dad3]'}`}
-            >
-              Refuser
-            </button>
-          </div>
+          {selectedUser.status === 'soumis' && (
+            <div className="grid grid-cols-3 gap-2 mb-5">
+              <button
+                type="button"
+                onClick={() => setConfirmAction({ type: 'approve' })}
+                disabled={actionLoading !== null}
+                className="py-2 rounded-[8px] bg-[#2f6f4f] hover:bg-emerald-800 text-white font-bold text-xs uppercase transition cursor-pointer select-none text-center disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {actionLoading === 'approve' && <Spinner />}
+                Valider
+              </button>
+              <button
+                type="button"
+                onClick={() => { setDecisionMode('correction'); setError(''); setMessage(''); }}
+                className={`py-2 rounded-[8px] font-bold text-xs uppercase transition cursor-pointer select-none text-center ${decisionMode === 'correction' ? 'bg-[#d9704f] text-white ring-2 ring-offset-1 ring-[#d9704f]' : 'bg-[#faf1e4] text-[#b3893f] hover:bg-[#f5e7d4]'}`}
+              >
+                Correction
+              </button>
+              <button
+                type="button"
+                onClick={() => { setDecisionMode('refuser'); setError(''); setMessage(''); }}
+                className={`py-2 rounded-[8px] font-bold text-xs uppercase transition cursor-pointer select-none text-center ${decisionMode === 'refuser' ? 'bg-[#9a3b2f] text-white ring-2 ring-offset-1 ring-[#9a3b2f]' : 'bg-[#fbeae7] text-[#9a3b2f] hover:bg-[#f7dad3]'}`}
+              >
+                Refuser
+              </button>
+            </div>
+          )}
+
+          {selectedUser.status !== 'soumis' && selectedUser.status !== 'valide' && (
+            <div className="text-xs text-[#9a917d] italic mb-2">
+              Ce dossier a déjà été traité, aucune action de décision n'est disponible.
+            </div>
+          )}
 
           {decisionMode && (
             <form onSubmit={handleDecisionSubmit} className="space-y-4 border-t border-[#efece3] pt-4">
@@ -368,14 +387,17 @@ export default function InscriptionDetailPage() {
               <div className="flex gap-2">
                 <button
                   type="submit"
-                  className={`flex-1 py-2.5 rounded-[8px] text-white font-bold text-xs uppercase cursor-pointer transition ${decisionMode === 'correction' ? 'bg-[#d9704f] hover:bg-[#c26040]' : 'bg-[#9a3b2f] hover:bg-red-800'}`}
+                  disabled={actionLoading !== null}
+                  className={`flex-1 py-2.5 rounded-[8px] text-white font-bold text-xs uppercase cursor-pointer transition disabled:opacity-50 flex items-center justify-center gap-2 ${decisionMode === 'correction' ? 'bg-[#d9704f] hover:bg-[#c26040]' : 'bg-[#9a3b2f] hover:bg-red-800'}`}
                 >
+                  {actionLoading === 'decision' && <Spinner />}
                   Confirmer
                 </button>
                 <button
                   type="button"
                   onClick={() => setDecisionMode(null)}
-                  className="px-3 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-[8px] text-xs uppercase cursor-pointer"
+                  disabled={actionLoading !== null}
+                  className="px-3 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-[8px] text-xs uppercase cursor-pointer disabled:opacity-50"
                 >
                   Annuler
                 </button>
@@ -388,22 +410,44 @@ export default function InscriptionDetailPage() {
               <div className="text-xs text-gray-500 font-semibold mb-2">Actions de maintenance :</div>
               <button
                 type="button"
-                onClick={() => handleUpdateUserStatus('suspendu')}
-                className="w-full py-2 bg-[#d9704f] hover:bg-[#c26040] text-white font-bold rounded-[8px] text-xs uppercase cursor-pointer transition"
+                onClick={() => setConfirmAction({ type: 'status', status: 'suspendu' })}
+                disabled={actionLoading !== null}
+                className="w-full py-2 bg-[#d9704f] hover:bg-[#c26040] text-white font-bold rounded-[8px] text-xs uppercase cursor-pointer transition disabled:opacity-50 flex items-center justify-center gap-2"
               >
+                {actionLoading === 'suspendu' && <Spinner />}
                 ⏸ Suspendre le compte
               </button>
               <button
                 type="button"
-                onClick={() => handleUpdateUserStatus('bloque')}
-                className="w-full py-2 bg-black hover:bg-gray-800 text-white font-bold rounded-[8px] text-xs uppercase cursor-pointer transition"
+                onClick={() => setConfirmAction({ type: 'status', status: 'bloque' })}
+                disabled={actionLoading !== null}
+                className="w-full py-2 bg-black hover:bg-gray-800 text-white font-bold rounded-[8px] text-xs uppercase cursor-pointer transition disabled:opacity-50 flex items-center justify-center gap-2"
               >
+                {actionLoading === 'bloque' && <Spinner />}
                 🚫 Bloquer définitivement
               </button>
             </div>
           )}
         </div>
       </div>
+
+      <ConfirmModal
+        open={confirmAction !== null}
+        title={confirmAction?.type === 'approve' ? 'Valider ce compte' : 'Changer le statut du compte'}
+        message={
+          confirmAction?.type === 'approve'
+            ? 'Valider définitivement ce compte professionnel ?'
+            : `Changer le statut du compte en "${confirmAction?.status}" ?`
+        }
+        confirmLabel={confirmAction?.type === 'approve' ? 'Valider' : 'Confirmer'}
+        danger={confirmAction?.type === 'status'}
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={() => {
+          if (confirmAction?.type === 'approve') handleApproveUser();
+          else if (confirmAction?.type === 'status') handleUpdateUserStatus(confirmAction.status);
+          setConfirmAction(null);
+        }}
+      />
     </div>
   );
 }

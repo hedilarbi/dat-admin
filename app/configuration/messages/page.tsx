@@ -5,6 +5,7 @@ import { apiRequest } from '../../api';
 import PageHeader from '../../components/PageHeader';
 import Alert from '../../components/Alert';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import Spinner from '../../components/Spinner';
 import FilterPills from '../../components/FilterPills';
 
 type Translations = { fr: string; en: string; };
@@ -246,8 +247,9 @@ export default function MessagesConfigurationPage() {
             <button
               type="submit"
               disabled={saving}
-              className="h-11 px-6 bg-[#2f6f4f] hover:bg-emerald-800 text-white font-bold rounded-[9px] text-xs uppercase tracking-[0.03em] transition disabled:opacity-50 cursor-pointer"
+              className="h-11 px-6 bg-[#2f6f4f] hover:bg-emerald-800 text-white font-bold rounded-[9px] text-xs uppercase tracking-[0.03em] transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
             >
+              {saving && <Spinner />}
               {saving ? 'Enregistrement...' : editingKey ? 'Mettre à jour' : 'Créer le message'}
             </button>
           </div>

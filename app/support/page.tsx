@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiRequest } from '../api';
 import Alert from '../components/Alert';
+import Spinner from '../components/Spinner';
 import SkeletonRows from '../components/SkeletonRows';
 import FilterPills from '../components/FilterPills';
 import { Badge, getTicketStatusBadge } from '../components/StatusBadge';
@@ -43,6 +44,8 @@ export default function AdminSupportPage() {
   const [internalNoteText, setInternalNoteText] = useState('');
   const [internalNoteTicketId, setInternalNoteTicketId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sendingReply, setSendingReply] = useState(false);
+  const [savingNote, setSavingNote] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
@@ -82,6 +85,7 @@ export default function AdminSupportPage() {
     if (!selectedTicket || !replyText.trim()) return;
     setError('');
     setMessage('');
+    setSendingReply(true);
     try {
       const res = await apiRequest(`/tickets/${selectedTicket._id}/messages`, {
         method: 'POST',
@@ -93,6 +97,8 @@ export default function AdminSupportPage() {
       await fetchTickets();
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setSendingReply(false);
     }
   };
 
@@ -114,6 +120,7 @@ export default function AdminSupportPage() {
   const handleAddInternalNote = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTicket || !internalNoteText.trim()) return;
+    setSavingNote(true);
     try {
       const res = await apiRequest(`/tickets/${selectedTicket._id}/internal-notes`, {
         method: 'POST',
@@ -123,6 +130,8 @@ export default function AdminSupportPage() {
       setMessage('Note interne enregistrée.');
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setSavingNote(false);
     }
   };
 
@@ -286,7 +295,8 @@ export default function AdminSupportPage() {
                   placeholder="Écrivez une réponse officielle au professionnel..."
                   className="w-full border border-[#dcd7cb] rounded-[9px] p-3 text-xs text-[#1a2230] focus:outline-none focus:ring-1 focus:ring-[#13243c]"
                 />
-                <button type="submit" className="self-end px-5 py-2 bg-[#13243c] hover:bg-slate-800 text-white font-bold rounded-[8px] text-xs uppercase transition cursor-pointer">
+                <button type="submit" disabled={sendingReply} className="self-end px-5 py-2 bg-[#13243c] hover:bg-slate-800 text-white font-bold rounded-[8px] text-xs uppercase transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2">
+                  {sendingReply && <Spinner />}
                   Envoyer au client
                 </button>
               </form>
@@ -308,7 +318,8 @@ export default function AdminSupportPage() {
                       ? `Modifiée par ${selectedTicket.internalNotes[0].admin?.firstName || ''} ${selectedTicket.internalNotes[0].admin?.lastName || ''} le ${new Date(selectedTicket.internalNotes[0].createdAt).toLocaleString('fr-FR')}`
                       : 'Aucune note pour ce dossier'}
                   </span>
-                  <button type="submit" className="px-4 py-1.5 bg-[#b3893f] hover:bg-[#9a7332] text-white font-bold rounded-[8px] text-xs uppercase cursor-pointer">
+                  <button type="submit" disabled={savingNote} className="px-4 py-1.5 bg-[#b3893f] hover:bg-[#9a7332] text-white font-bold rounded-[8px] text-xs uppercase cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2">
+                    {savingNote && <Spinner />}
                     {selectedTicket.internalNotes?.[0] ? 'Modifier la note' : '+ Ajouter la note'}
                   </button>
                 </div>

@@ -6,6 +6,7 @@ import { apiRequest } from '../api';
 import { useUser } from '../components/LayoutWrapper';
 import PasswordInput from '../components/PasswordInput';
 import Alert from '../components/Alert';
+import Spinner from '../components/Spinner';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -93,8 +94,9 @@ export default function AdminLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-md text-white bg-[#13243C] hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+              className="group relative w-full flex items-center justify-center gap-2 py-2 px-4 border border-transparent text-sm font-bold rounded-md text-white bg-[#13243C] hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
             >
+              {loading && <Spinner />}
               {loading ? 'Connexion...' : 'Se connecter au panel'}
             </button>
           </div>
