@@ -119,7 +119,7 @@ export default function InscriptionsPage() {
 
   if (loading) {
     return (
-      <div className="flex-1 min-w-0 overflow-y-auto p-8 sm:p-10 font-sans bg-[#fbfaf7]">
+      <div className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 lg:p-10 font-sans bg-[#fbfaf7]">
         <div className="border border-[#eceadf] bg-white rounded-[12px] overflow-hidden shadow-sm">
           <SkeletonRows />
         </div>
@@ -133,7 +133,7 @@ export default function InscriptionsPage() {
   }));
 
   return (
-    <div className="flex-1 min-w-0 overflow-y-auto p-8 sm:p-10 font-sans text-black bg-[#fbfaf7]">
+    <div className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 lg:p-10 font-sans text-black bg-[#fbfaf7]">
       <PageHeader
         eyebrow="Validation des comptes professionnels"
         title={`Inscriptions ${userRoleFilter === 'all' ? 'acheteurs & vendeurs' : userRoleFilter + 's'}`}
@@ -153,7 +153,7 @@ export default function InscriptionsPage() {
       </div>
 
       {/* Counter Stats Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-7">
+      <div className="grid grid-cols-1 min-[400px]:grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-7">
         <StatCard label="En attente" value={counts.enAttente} bg="#faf1e4" labelColor="#b3893f" />
         <StatCard label="Correction demandée" value={counts.correction} bg="#fdece4" labelColor="#d9704f" />
         <StatCard label="Validées total" value={counts.valide} bg="#e9f4ee" labelColor="#2f6f4f" />

@@ -149,7 +149,7 @@ export default function AdminSupportPage() {
   if (loading) {
     return (
       <div className="flex-1 flex flex-col lg:flex-row h-full min-h-0 bg-white font-sans">
-        <div className="w-full lg:w-[400px] border-r border-[#eceadf] shrink-0 min-h-0 bg-white">
+        <div className="w-full lg:w-[400px] max-lg:h-[45dvh] border-r border-[#eceadf] shrink-0 min-h-0 bg-white">
           <SkeletonRows count={8} />
         </div>
         <div className="flex-1 bg-[#fbfaf7]" />
@@ -160,7 +160,7 @@ export default function AdminSupportPage() {
   return (
     <div className="flex-1 flex flex-col lg:flex-row h-full min-h-0 bg-white font-sans text-black">
       {/* Column 1: Tickets List */}
-      <div className="w-full lg:w-[400px] border-r border-[#eceadf] flex flex-col shrink-0 min-h-0 select-none bg-white">
+      <div className="w-full lg:w-[400px] max-lg:h-[45dvh] border-r border-[#eceadf] flex flex-col shrink-0 min-h-0 select-none bg-white">
         <div className="p-[22px_20px_14px]">
           <div className="font-semibold text-[11px] tracking-[0.2em] uppercase text-[#a3987f] mb-1">
             Messagerie & Réclamations
@@ -230,7 +230,7 @@ export default function AdminSupportPage() {
         {selectedTicket ? (
           <>
             {/* Header */}
-            <div className="p-[20px_24px] border-b border-[#eceadf] bg-white flex flex-col sm:flex-row justify-between sm:items-center gap-3 shrink-0">
+            <div className="p-4 sm:p-[20px_24px] border-b border-[#eceadf] bg-white flex flex-col sm:flex-row justify-between sm:items-center gap-3 shrink-0">
               <div>
                 <div className="text-xs font-semibold text-[#8a8270] uppercase">
                   {getCategoryLabel(selectedTicket.category)} · Priorité {selectedTicket.priority}
@@ -258,7 +258,7 @@ export default function AdminSupportPage() {
             </div>
 
             {/* Messages Thread */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
               {error && <Alert variant="error">{error}</Alert>}
               {message && <Alert variant="success">{message}</Alert>}
 
@@ -266,7 +266,7 @@ export default function AdminSupportPage() {
                 const isAdmin = m.senderRole === 'admin';
                 return (
                   <div key={m._id} className={`flex flex-col ${isAdmin ? 'items-end' : 'items-start'}`}>
-                    <div className={`max-w-[75%] rounded-[12px] p-4 ${isAdmin ? 'bg-[#13243c] text-white' : 'bg-white border border-[#eceadf] text-[#1a2230] shadow-sm'}`}>
+                    <div className={`max-w-[92%] sm:max-w-[75%] rounded-[12px] p-3 sm:p-4 ${isAdmin ? 'bg-[#13243c] text-white' : 'bg-white border border-[#eceadf] text-[#1a2230] shadow-sm'}`}>
                       <div className="flex justify-between items-center gap-4 mb-2 border-b border-opacity-10 pb-1">
                         <span className={`font-bold text-xs ${isAdmin ? 'text-[#b3893f]' : 'text-[#d9704f]'}`}>
                           {isAdmin ? '🛡️ Administration Auto Connect' : `${m.sender?.companyName || 'Client'} (${m.senderRole})`}

@@ -42,6 +42,27 @@ export function getTicketStatusBadge(status: string): BadgeStyle {
   }
 }
 
+/** Statut d'un dossier véhicule. */
+export function getVehicleDossierStatusBadge(status: string): BadgeStyle {
+  switch (status) {
+    case 'brouillon':
+      return { label: 'Brouillon', color: '#8a8270', bg: '#f1efe8' };
+    case 'soumis':
+    case 'en_attente_validation':
+      return { label: 'En attente', color: '#b3893f', bg: '#faf1e4' };
+    case 'correction_demandee':
+      return { label: 'Correction demandée', color: '#d9704f', bg: '#fdece4' };
+    case 'refuse':
+      return { label: 'Refusé', color: '#9a3b2f', bg: '#fbeae7' };
+    case 'valide':
+      return { label: 'Validé', color: '#2f6f4f', bg: '#e9f4ee' };
+    case 'annule_vendeur':
+      return { label: 'Annulé', color: '#8a8270', bg: '#f1efe8' };
+    default:
+      return { label: status, color: '#13243c', bg: '#eef1f5' };
+  }
+}
+
 interface BadgeProps {
   style: BadgeStyle;
   className?: string;

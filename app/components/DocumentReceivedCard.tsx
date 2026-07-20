@@ -9,7 +9,7 @@ interface DocumentReceivedCardProps {
 
 export default function DocumentReceivedCard({ fileType, title, description, url }: DocumentReceivedCardProps) {
   return (
-    <div className="border border-[#eceadf] bg-white rounded-[12px] p-[14px_18px] flex items-center gap-4">
+    <div className="border border-[#eceadf] bg-white rounded-[12px] p-[14px_18px] flex flex-wrap sm:flex-nowrap items-center gap-4">
       <div className="w-10 h-10 rounded-[9px] bg-[#f1efe8] flex items-center justify-center font-semibold text-[10px] text-[#a3987f]">
         {fileType}
       </div>

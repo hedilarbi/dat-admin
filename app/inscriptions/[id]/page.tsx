@@ -160,7 +160,7 @@ export default function InscriptionDetailPage() {
   const badge = getInscriptionStatusBadge(selectedUser.status);
 
   return (
-    <div className="flex-1 min-w-0 overflow-y-auto pt-8 sm:pt-10 pr-8 sm:pr-10 pl-8 sm:pl-10 pb-20 sm:pb-24 font-sans text-black flex flex-col xl:flex-row gap-8 bg-[#fbfaf7]">
+    <div className="flex-1 min-w-0 overflow-y-auto p-4 pb-20 sm:p-6 sm:pb-24 lg:p-10 lg:pb-24 font-sans text-black flex flex-col xl:flex-row gap-6 xl:gap-8 bg-[#fbfaf7]">
       {/* Left / Main Details */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 font-semibold text-xs text-[#8a8270] mb-4">

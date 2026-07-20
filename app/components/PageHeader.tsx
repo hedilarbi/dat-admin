@@ -14,7 +14,7 @@ export default function PageHeader({ eyebrow, title, description, action }: Page
         <div className="font-semibold text-[11px] tracking-[0.2em] uppercase text-[#a3987f] mb-2.5">
           {eyebrow}
         </div>
-        <h1 className="m-0 font-bold text-[36px] font-heading uppercase text-[#13243c] leading-none">
+        <h1 className="m-0 font-bold text-[28px] sm:text-[36px] font-heading uppercase text-[#13243c] leading-none">
           {title}
         </h1>
         {description && (

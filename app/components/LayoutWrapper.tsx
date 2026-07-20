@@ -4,7 +4,7 @@ import React, { useState, useEffect, createContext, useContext, useCallback } fr
 import { useRouter, usePathname } from 'next/navigation';
 import { apiRequest } from '../api';
 import Link from 'next/link';
-import { Bell, LogOut, X, ChevronDown } from 'lucide-react';
+import { Bell, LogOut, X, ChevronDown, Menu } from 'lucide-react';
 
 interface UserProfile {
   _id: string;
@@ -102,6 +102,7 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationsModalOpen, setNotificationsModalOpen] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const isAuthPage = pathname === '/login' || pathname === '/';
   const isConfigSection = pathname.startsWith('/configuration');
@@ -151,6 +152,23 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
     }
   }, [fetchNotifications, isAuthPage, user]);
 
+  useEffect(() => {
+    if (!drawerOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setDrawerOpen(false);
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [drawerOpen]);
+
   if (loading && !isAuthPage) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#fbfaf7] font-sans">
@@ -180,12 +198,37 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
 
   // ADMIN LAYOUT (Full Screen Edge-to-Edge)
   return (
-    <div className="h-screen w-screen bg-white flex overflow-hidden font-sans">
+    <div className="h-dvh w-full bg-white flex overflow-hidden font-sans">
+      {drawerOpen && (
+        <button
+          type="button"
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={() => setDrawerOpen(false)}
+          aria-label="Fermer le menu"
+        />
+      )}
+
       {/* Left Sidebar */}
-      <aside className="w-[240px] shrink-0 h-full bg-[#13243c] p-[28px_18px] flex flex-col justify-between select-none">
+      <aside
+        id="admin-navigation"
+        onClick={event => {
+          if ((event.target as HTMLElement).closest('a')) setDrawerOpen(false);
+        }}
+        className={`fixed inset-y-0 left-0 z-50 w-[280px] max-w-[85vw] bg-[#13243c] p-[22px_18px_28px] flex flex-col justify-between select-none shadow-2xl transition-transform duration-300 ease-out lg:static lg:z-auto lg:w-[240px] lg:max-w-none lg:shrink-0 lg:h-full lg:p-[28px_18px] lg:shadow-none lg:translate-x-0 ${drawerOpen ? 'translate-x-0' : '-translate-x-full'}`}
+      >
         <div>
-          <div className="w-[110px] h-[32px] border border-dashed border-[#47597a] rounded-[6px] flex items-center justify-center text-[9px] font-semibold tracking-widest uppercase text-[#8ea0bd] mb-[36px]">
-            Logo
+          <div className="flex items-center justify-between mb-[30px] lg:mb-[36px]">
+            <div className="w-[110px] h-[32px] border border-dashed border-[#47597a] rounded-[6px] flex items-center justify-center text-[9px] font-semibold tracking-widest uppercase text-[#8ea0bd]">
+              Logo
+            </div>
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(false)}
+              className="h-10 w-10 rounded-[8px] border border-[#2c4266] text-white flex items-center justify-center hover:bg-[#1c3050] lg:hidden"
+              aria-label="Fermer le menu"
+            >
+              <X size={20} />
+            </button>
           </div>
           <nav className="flex flex-col gap-1">
             <Link href="/dashboard" className={`flex items-center px-[14px] py-[12px] rounded-[9px] font-[500] text-[14px] transition ${pathname === '/dashboard' ? 'bg-[#1c3050] text-white font-semibold' : 'text-[#9fb0c9] hover:bg-[#1a2b44]'}`}>
@@ -228,7 +271,18 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
       </aside>
 
       <div className="flex-1 h-full flex flex-col min-w-0 bg-[#fbfaf7]">
-        <header className="h-[64px] bg-[#13243c] flex items-center px-8 gap-4 shrink-0 select-none">
+        <header className="h-[64px] bg-[#13243c] flex items-center px-3 sm:px-5 lg:px-8 gap-3 lg:gap-4 shrink-0 select-none">
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            className="h-10 w-10 shrink-0 rounded-[8px] border border-[#2c4266] bg-[#1c3050] text-white flex items-center justify-center hover:bg-slate-800 transition lg:hidden"
+            aria-label="Ouvrir le menu"
+            aria-controls="admin-navigation"
+            aria-expanded={drawerOpen}
+          >
+            <Menu size={20} />
+          </button>
+          <span className="text-white text-sm font-bold font-heading uppercase tracking-wide lg:hidden">Admin</span>
           <div className="ml-auto flex items-center gap-3">
             <div className="relative">
               <button
@@ -246,7 +300,7 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
               </button>
 
               {notificationsOpen && (
-                <div className="absolute right-0 top-[48px] w-[380px] bg-white border border-[#dcd7cb] shadow-[0_14px_35px_rgba(0,0,0,0.16)] z-30 text-black">
+                <div className="fixed left-3 right-3 top-[58px] sm:absolute sm:left-auto sm:right-0 sm:top-[48px] sm:w-[380px] bg-white border border-[#dcd7cb] shadow-[0_14px_35px_rgba(0,0,0,0.16)] z-30 text-black">
                   <div className="p-4 border-b border-[#efece3] flex items-center justify-between">
                     <div className="font-bold text-[#13243c] uppercase text-[13px] tracking-[0.06em]">Notifications</div>
                     <button type="button" onClick={markAllNotificationsAsRead} className="text-[11px] font-semibold text-[#d9704f] hover:underline">
@@ -288,7 +342,7 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
               )}
             </div>
 
-            <div className="flex items-center gap-2 bg-[#1c3050] border border-[#2c4266] rounded-[8px] p-[6px_14px_6px_6px]">
+            <div className="hidden sm:flex items-center gap-2 bg-[#1c3050] border border-[#2c4266] rounded-[8px] p-[6px_14px_6px_6px]">
               <div className="w-[30px] h-[30px] rounded-full bg-[#b3893f] flex items-center justify-center text-[12px] font-bold text-white">
                 {getInitials()}
               </div>
@@ -301,10 +355,11 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
             <button
               type="button"
               onClick={logout}
-              className="h-10 px-3 rounded-[8px] bg-red-800 hover:bg-red-700 text-white flex items-center gap-2 font-bold text-[12px] uppercase tracking-[0.03em] transition cursor-pointer"
+              className="h-10 w-10 sm:w-auto sm:px-3 rounded-[8px] bg-red-800 hover:bg-red-700 text-white flex items-center justify-center gap-2 font-bold text-[12px] uppercase tracking-[0.03em] transition cursor-pointer"
+              aria-label="Déconnexion"
             >
               <LogOut size={15} />
-              Déconnexion
+              <span className="hidden sm:inline">Déconnexion</span>
             </button>
           </div>
         </header>
@@ -316,9 +371,9 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
       </div>
 
       {notificationsModalOpen && (
-        <div className="fixed inset-0 z-40 bg-black/40 flex items-center justify-center p-6">
+        <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-3 sm:p-6">
           <div className="w-full max-w-[720px] max-h-[82vh] bg-white shadow-[0_20px_60px_rgba(0,0,0,0.24)] flex flex-col">
-            <div className="h-[64px] bg-[#13243c] flex items-center justify-between px-6 text-white shrink-0">
+            <div className="min-h-[64px] bg-[#13243c] flex items-center justify-between gap-3 px-4 sm:px-6 py-3 text-white shrink-0">
               <div>
                 <div className="text-[11px] font-semibold text-[#8ea0bd] uppercase tracking-[0.16em]">Centre de notifications</div>
                 <div className="font-bold">Notifications admin</div>
@@ -351,7 +406,7 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
                     onClick={() => markNotificationAsRead(notification._id)}
                     className={`w-full p-5 border-b border-[#efece3] text-left hover:bg-[#fbfaf7] transition ${notification.readAt ? 'bg-white' : 'bg-[#fff7f1]'}`}
                   >
-                    <div className="flex justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row sm:justify-between gap-3 sm:gap-4">
                       <div>
                         <div className="font-bold text-[#13243c]">{notification.title}</div>
                         <div className="text-sm text-[#5a5e66] mt-1">{notification.message}</div>

@@ -144,7 +144,7 @@ export default function MessagesConfigurationPage() {
   }));
 
   return (
-    <div className="flex-1 min-w-0 overflow-y-auto p-8 sm:p-10 font-sans text-black bg-[#fbfaf7]">
+    <div className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 lg:p-10 font-sans text-black bg-[#fbfaf7]">
       <PageHeader
         eyebrow="Configuration"
         title="Messages de refus & correction"
@@ -168,7 +168,7 @@ export default function MessagesConfigurationPage() {
       {success && <Alert variant="success" className="mb-4">{success}</Alert>}
 
       {formOpen && (
-        <form onSubmit={handleSubmit} className="border border-[#eceadf] bg-white rounded-[12px] p-6 mb-7 shadow-sm space-y-5">
+        <form onSubmit={handleSubmit} className="border border-[#eceadf] bg-white rounded-[12px] p-4 sm:p-6 mb-7 shadow-sm space-y-5">
           <div className="flex items-center justify-between">
             <h2 className="font-bold text-sm text-[#13243c] uppercase tracking-wide">
               {editingKey ? `Modifier "${editingKey}"` : 'Nouveau message'}
