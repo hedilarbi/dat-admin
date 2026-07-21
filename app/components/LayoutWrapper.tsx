@@ -45,6 +45,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
 
   const fetchProfile = async () => {
     try {
@@ -75,9 +76,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Revalider la session à chaque changement de page, pas seulement au chargement initial :
+  // certaines pages (ex. Tableau de bord, Sessions) n'appellent aucune API et ne peuvent donc
+  // jamais détecter, via apiRequest, qu'une session a expiré pendant la navigation — sans ça,
+  // l'expiration n'est constatée qu'en arrivant sur une page qui déclenche un appel (ex. Inscriptions).
   useEffect(() => {
     fetchProfile();
-  }, []);
+  }, [pathname]);
 
   return (
     <UserContext.Provider value={{ user, loading, logout, refreshProfile: fetchProfile }}>

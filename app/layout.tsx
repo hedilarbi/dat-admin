@@ -17,8 +17,8 @@ const sairaCondensed = Saira_Condensed({
 });
 
 export const metadata: Metadata = {
-  title: "Admin DealsAutoPro",
-  description: "Console d'administration DealsAutoPro",
+  title: "Admin DealAutoPro",
+  description: "Console d'administration DealAutoPro",
 };
 
 export default function RootLayout({

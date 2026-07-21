@@ -53,7 +53,7 @@ export default function AdminLoginPage() {
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-lg shadow-2xl border border-gray-700">
         <div>
           <h2 className="mt-2 text-center text-3xl font-extrabold text-gray-900 uppercase font-heading">
-            🛡️ DealsAutoPro - Administration
+            🛡️ DealAutoPro - Administration
           </h2>
           <p className="mt-2 text-center text-sm text-gray-500">
             Console de validation des inscriptions et support technique

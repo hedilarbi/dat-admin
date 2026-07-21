@@ -10,11 +10,20 @@ export type DossierStatus =
   | 'annule_vendeur';
 
 export interface BlurZone {
+  /** Index de page (0-based) pour un document PDF multi-page ; absent/0 pour une photo ou un document image. */
+  page?: number;
   x: number;
   y: number;
   width: number;
   height: number;
   _id?: string;
+}
+
+export interface PdfPage {
+  index: number;
+  width: number;
+  height: number;
+  dataUrl: string;
 }
 
 export interface DossierPhoto {

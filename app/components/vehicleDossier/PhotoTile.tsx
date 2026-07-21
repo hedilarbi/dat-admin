@@ -12,7 +12,7 @@ interface PhotoTileProps {
 }
 
 export default function PhotoTile({ photo, index, total, onSetCover, onMoveUp, onMoveDown, onEditBlur }: PhotoTileProps) {
-  const displayUrl = photo.originalUrl;
+  const displayUrl = photo.processedUrl || photo.originalUrl;
 
   return (
     <div className="relative rounded-[10px] border border-[#eceadf] bg-white overflow-hidden">

@@ -21,6 +21,7 @@ interface UserProfile {
   phone: string;
   role: 'admin' | 'vendeur' | 'acheteur';
   status: 'brouillon' | 'soumis' | 'en_attente_validation' | 'refuse' | 'correction_demandee' | 'valide' | 'suspendu' | 'bloque';
+  kbisNumber?: string;
   kbisUrl?: string;
   cinRectoUrl?: string;
   cinVersoUrl?: string;
@@ -198,6 +199,10 @@ export default function InscriptionDetailPage() {
           <div className="border border-[#eceadf] bg-white rounded-[10px] p-[14px_16px]">
             <div className="font-medium text-[11px] text-[#9a917d] uppercase tracking-[0.04em]">Activité principale</div>
             <div className="font-semibold text-sm text-[#13243c] mt-1.5">{selectedUser.activityType}</div>
+          </div>
+          <div className="border border-[#eceadf] bg-white rounded-[10px] p-[14px_16px]">
+            <div className="font-medium text-[11px] text-[#9a917d] uppercase tracking-[0.04em]">Numéro de K-bis</div>
+            <div className="font-semibold text-sm text-[#13243c] mt-1.5">{selectedUser.kbisNumber || 'Non renseigné'}</div>
           </div>
           <div className="border border-[#eceadf] bg-white rounded-[10px] p-[14px_16px]">
             <div className="font-medium text-[11px] text-[#9a917d] uppercase tracking-[0.04em]">Adresse</div>

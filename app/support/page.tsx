@@ -9,6 +9,7 @@ import SkeletonRows from '../components/SkeletonRows';
 import FilterPills from '../components/FilterPills';
 import { Badge, getTicketStatusBadge } from '../components/StatusBadge';
 import { getCategoryLabel } from '../lib/categoryLabels';
+import { compressImageIfNeeded, MAX_UPLOAD_BYTES } from '../lib/imageCompression';
 
 interface TicketMessage {
   _id: string;
@@ -41,6 +42,9 @@ export default function AdminSupportPage() {
   const [ticketStatusFilter, setTicketStatusFilter] = useState<string>('all');
 
   const [replyText, setReplyText] = useState('');
+  const [replyFile, setReplyFile] = useState('');
+  const [replyFileName, setReplyFileName] = useState('');
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [internalNoteText, setInternalNoteText] = useState('');
   const [internalNoteTicketId, setInternalNoteTicketId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -87,18 +91,71 @@ export default function AdminSupportPage() {
     setMessage('');
     setSendingReply(true);
     try {
+      const attachments = replyFile ? [replyFile] : [];
       const res = await apiRequest(`/tickets/${selectedTicket._id}/messages`, {
         method: 'POST',
-        body: JSON.stringify({ content: replyText })
+        body: JSON.stringify({ content: replyText, attachments })
       });
       setSelectedTicket(res.ticket);
       setReplyText('');
+      setReplyFile('');
+      setReplyFileName('');
       setMessage('Réponse envoyée au client.');
       await fetchTickets();
     } catch (err: any) {
       setError(err.message);
     } finally {
       setSendingReply(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawFile = e.target.files?.[0];
+    if (!rawFile) return;
+
+    setError('');
+
+    const file = await compressImageIfNeeded(rawFile);
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setError(`Fichier trop volumineux (${(file.size / (1024 * 1024)).toFixed(1)} Mo). Taille maximale : ${MAX_UPLOAD_BYTES / (1024 * 1024)} Mo.`);
+      e.target.value = '';
+      return;
+    }
+
+    setUploadingAttachment(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      const responseText = await res.text();
+      let data: any = {};
+      if (responseText) {
+        try {
+          data = JSON.parse(responseText);
+        } catch {
+          throw new Error("Échec de l'envoi de la pièce jointe.");
+        }
+      }
+
+      if (!res.ok || !data.url) {
+        throw new Error(data.message || "Échec de l'envoi de la pièce jointe.");
+      }
+
+      setReplyFile(data.url);
+      setReplyFileName(file.name);
+    } catch (err: any) {
+      setError(err.message || "Échec de l'envoi de la pièce jointe.");
+      setReplyFile('');
+      setReplyFileName('');
+    } finally {
+      setUploadingAttachment(false);
+      e.target.value = '';
     }
   };
 
@@ -149,18 +206,18 @@ export default function AdminSupportPage() {
   if (loading) {
     return (
       <div className="flex-1 flex flex-col lg:flex-row h-full min-h-0 bg-white font-sans">
-        <div className="w-full lg:w-[400px] max-lg:h-[45dvh] border-r border-[#eceadf] shrink-0 min-h-0 bg-white">
+        <div className="w-full lg:w-[400px] max-lg:h-full border-r border-[#eceadf] shrink-0 min-h-0 bg-white">
           <SkeletonRows count={8} />
         </div>
-        <div className="flex-1 bg-[#fbfaf7]" />
+        <div className="hidden lg:block flex-1 bg-[#fbfaf7]" />
       </div>
     );
   }
 
   return (
     <div className="flex-1 flex flex-col lg:flex-row h-full min-h-0 bg-white font-sans text-black">
-      {/* Column 1: Tickets List */}
-      <div className="w-full lg:w-[400px] max-lg:h-[45dvh] border-r border-[#eceadf] flex flex-col shrink-0 min-h-0 select-none bg-white">
+      {/* Column 1: Tickets List — hidden on mobile once a ticket is open, so its detail pane can take the full screen instead of both panes stacking and the empty-state placeholder swallowing most of the viewport */}
+      <div className={`${selectedTicket ? 'hidden lg:flex' : 'flex'} w-full lg:w-[400px] max-lg:h-full border-r border-[#eceadf] flex-col shrink-0 min-h-0 select-none bg-white`}>
         <div className="p-[22px_20px_14px]">
           <div className="font-semibold text-[11px] tracking-[0.2em] uppercase text-[#a3987f] mb-1">
             Messagerie & Réclamations
@@ -225,13 +282,20 @@ export default function AdminSupportPage() {
         </div>
       </div>
 
-      {/* Column 2: Selected Ticket Thread & Actions */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#fbfaf7]">
+      {/* Column 2: Selected Ticket Thread & Actions — hidden on mobile until a ticket is selected */}
+      <div className={`${selectedTicket ? 'flex' : 'hidden lg:flex'} flex-1 flex-col min-w-0 max-lg:h-full bg-[#fbfaf7]`}>
         {selectedTicket ? (
           <>
             {/* Header */}
             <div className="p-4 sm:p-[20px_24px] border-b border-[#eceadf] bg-white flex flex-col sm:flex-row justify-between sm:items-center gap-3 shrink-0">
               <div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTicket(null)}
+                  className="lg:hidden text-[13px] font-bold text-[#d9704f] underline hover:text-[#c26040] mb-3 block"
+                >
+                  ← Retour à la liste
+                </button>
                 <div className="text-xs font-semibold text-[#8a8270] uppercase">
                   {getCategoryLabel(selectedTicket.category)} · Priorité {selectedTicket.priority}
                 </div>
@@ -276,6 +340,21 @@ export default function AdminSupportPage() {
                         </span>
                       </div>
                       <div className="text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">{m.content}</div>
+                      {m.attachments && m.attachments.length > 0 && (
+                        <div className={`mt-2 pt-1.5 border-t border-dashed ${isAdmin ? 'border-white/20' : 'border-gray-300'}`}>
+                          {m.attachments.map((url, uidx) => (
+                            <a
+                              key={uidx}
+                              href={url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className={`text-[11px] font-bold underline block truncate hover:opacity-80 ${isAdmin ? 'text-white' : 'text-[#13243c]'}`}
+                            >
+                              📎 Pièce jointe {uidx + 1}
+                            </a>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -295,10 +374,18 @@ export default function AdminSupportPage() {
                   placeholder="Écrivez une réponse officielle au professionnel..."
                   className="w-full border border-[#dcd7cb] rounded-[9px] p-3 text-xs text-[#1a2230] focus:outline-none focus:ring-1 focus:ring-[#13243c]"
                 />
-                <button type="submit" disabled={sendingReply} className="self-end px-5 py-2 bg-[#13243c] hover:bg-slate-800 text-white font-bold rounded-[8px] text-xs uppercase transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2">
-                  {sendingReply && <Spinner />}
-                  Envoyer au client
-                </button>
+                <div className="flex justify-between items-center gap-2">
+                  <label className={`h-9 border rounded-[8px] px-3 flex items-center gap-2 max-w-[180px] transition cursor-pointer text-xs shrink-0 ${replyFile ? 'border-[#bcd8c8] bg-[#f2f8f4] text-[#2f6f4f]' : 'border-[#dcd7cb] bg-gray-50 hover:bg-gray-100 text-[#4c5058]'}`}>
+                    {uploadingAttachment ? <Spinner /> : (replyFile ? '✓' : '📎')}
+                    {replyFile && !uploadingAttachment && <span className="truncate font-semibold">{replyFileName}</span>}
+                    {!replyFile && !uploadingAttachment && <span className="font-semibold">Joindre un fichier</span>}
+                    <input type="file" onChange={handleFileUpload} className="hidden" disabled={uploadingAttachment} />
+                  </label>
+                  <button type="submit" disabled={sendingReply || uploadingAttachment} className="px-5 py-2 bg-[#13243c] hover:bg-slate-800 text-white font-bold rounded-[8px] text-xs uppercase transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 shrink-0">
+                    {sendingReply && <Spinner />}
+                    Envoyer au client
+                  </button>
+                </div>
               </form>
 
               {/* Internal Note */}

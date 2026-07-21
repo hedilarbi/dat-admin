@@ -143,12 +143,24 @@ export default function DossierVehiculeDetailPage() {
     setMediaDirty(true);
   };
 
-  const editingItem: { originalUrl: string; blurZones: BlurZone[] } | null = (() => {
+  const editingItem: { originalUrl: string; blurZones: BlurZone[]; mimeType?: string } | null = (() => {
     if (!editingTarget) return null;
     if (editingTarget.kind === 'photo') return photos[editingTarget.index] || null;
     if (editingTarget.kind === 'expertReport') return expertReport || null;
     return additionalDocuments[editingTarget.index] || null;
   })();
+
+  const isEditingPdf = editingItem?.mimeType === 'application/pdf';
+
+  const groupZonesByPage = (zones: BlurZone[]) => {
+    const byPage = new Map<number, BlurZone[]>();
+    for (const zone of zones) {
+      const page = zone.page ?? 0;
+      if (!byPage.has(page)) byPage.set(page, []);
+      byPage.get(page)!.push({ x: zone.x, y: zone.y, width: zone.width, height: zone.height } as BlurZone);
+    }
+    return Array.from(byPage.entries()).map(([page, zs]) => ({ page, zones: zs }));
+  };
 
   const updateEditingZones = (zones: BlurZone[]) => {
     if (!editingTarget) return;
@@ -166,10 +178,15 @@ export default function DossierVehiculeDetailPage() {
     setApplyingBlur(true);
     setError('');
     try {
-      const res = await apiRequest('/vehicle-dossiers/media/blur', {
-        method: 'POST',
-        body: JSON.stringify({ imageUrl: editingItem.originalUrl, zones: editingItem.blurZones }),
-      });
+      const res = isEditingPdf
+        ? await apiRequest('/vehicle-dossiers/media/pdf-blur', {
+            method: 'POST',
+            body: JSON.stringify({ pdfUrl: editingItem.originalUrl, pagesZones: groupZonesByPage(editingItem.blurZones) }),
+          })
+        : await apiRequest('/vehicle-dossiers/media/blur', {
+            method: 'POST',
+            body: JSON.stringify({ imageUrl: editingItem.originalUrl, zones: editingItem.blurZones }),
+          });
       if (editingTarget.kind === 'photo') {
         setPhotos((prev) => prev.map((p, i) => (i === editingTarget.index ? { ...p, processedUrl: res.url } : p)));
       } else if (editingTarget.kind === 'expertReport') {
@@ -339,7 +356,7 @@ export default function DossierVehiculeDetailPage() {
               {expertReport.processedUrl && (
                 <span className="font-semibold text-xs px-3 py-1 rounded-full bg-[#fdece4] text-[#d9704f]">Flou appliqué</span>
               )}
-              {expertReport.mimeType?.startsWith('image/') && (
+              {(expertReport.mimeType?.startsWith('image/') || expertReport.mimeType === 'application/pdf') && (
                 <button
                   type="button"
                   onClick={() => setEditingTarget({ kind: 'expertReport' })}
@@ -367,7 +384,7 @@ export default function DossierVehiculeDetailPage() {
               {doc.processedUrl && (
                 <span className="font-semibold text-xs px-3 py-1 rounded-full bg-[#fdece4] text-[#d9704f]">Flou appliqué</span>
               )}
-              {doc.mimeType?.startsWith('image/') && (
+              {(doc.mimeType?.startsWith('image/') || doc.mimeType === 'application/pdf') && (
                 <button
                   type="button"
                   onClick={() => setEditingTarget({ kind: 'document', index })}
@@ -520,6 +537,7 @@ export default function DossierVehiculeDetailPage() {
       {editingTarget && editingItem && (
         <BlurZoneEditor
           imageUrl={editingItem.originalUrl}
+          mimeType={editingItem.mimeType}
           zones={editingItem.blurZones}
           onZonesChange={updateEditingZones}
           onValidate={applyBlurToEditingItem}
