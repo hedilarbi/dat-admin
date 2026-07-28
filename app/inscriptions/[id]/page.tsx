@@ -28,7 +28,16 @@ interface UserProfile {
   vhuNumber?: string;
   address?: { street: string; city: string; country: string; postalCode: string; };
   bankInfo?: { bankName: string; accountHolder: string; iban: string; bic: string; ribUrl?: string; };
+  rejections?: RejectionEntry[];
   createdAt: string;
+}
+
+interface RejectionEntry {
+  date: string;
+  motifs: string[];
+  motifsLabels?: string[];
+  comment?: string;
+  resubmittedAt?: string;
 }
 
 interface RefusalReason {
@@ -187,6 +196,46 @@ export default function InscriptionDetailPage() {
         {error && <Alert variant="error" className="mb-4">{error}</Alert>}
         {message && <Alert variant="success" className="mb-4">{message}</Alert>}
 
+        {/* Historique des corrections déjà demandées */}
+        {selectedUser.rejections && selectedUser.rejections.length > 0 && (
+          <>
+            <div className="font-bold text-xs tracking-[0.06em] uppercase text-[#8a8270] mb-3">
+              Historique des corrections demandées
+            </div>
+            <div className="flex flex-col gap-3 mb-7">
+              {[...selectedUser.rejections].reverse().map((rejection, idx) => {
+                const reasons = (rejection.motifsLabels && rejection.motifsLabels.length > 0)
+                  ? rejection.motifsLabels
+                  : rejection.motifs;
+                return (
+                  <div key={idx} className="border border-[#eceadf] bg-white rounded-[10px] p-[14px_16px]">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-semibold text-xs text-[#13243c]">
+                        {new Date(rejection.date).toLocaleDateString('fr-FR')}
+                      </span>
+                      {rejection.resubmittedAt && (
+                        <span className="text-[11px] text-[#2f6f4f] font-medium">
+                          Redossier soumis le {new Date(rejection.resubmittedAt).toLocaleDateString('fr-FR')}
+                        </span>
+                      )}
+                    </div>
+                    {reasons && reasons.length > 0 && (
+                      <ul className="list-disc list-inside text-xs text-[#4c5058] space-y-0.5 mb-2">
+                        {reasons.map((motif, mIdx) => <li key={mIdx}>{motif}</li>)}
+                      </ul>
+                    )}
+                    {rejection.comment && (
+                      <p className="text-xs italic text-[#5a5e66] bg-[#fbfaf7] border rounded p-2 mt-1">
+                        &quot;{rejection.comment}&quot;
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
         {/* Informations société */}
         <div className="font-bold text-xs tracking-[0.06em] uppercase text-[#8a8270] mb-3">
           Informations société
@@ -201,7 +250,7 @@ export default function InscriptionDetailPage() {
             <div className="font-semibold text-sm text-[#13243c] mt-1.5">{selectedUser.activityType}</div>
           </div>
           <div className="border border-[#eceadf] bg-white rounded-[10px] p-[14px_16px]">
-            <div className="font-medium text-[11px] text-[#9a917d] uppercase tracking-[0.04em]">Numéro de K-bis</div>
+            <div className="font-medium text-[11px] text-[#9a917d] uppercase tracking-[0.04em]">Numéro SIREN</div>
             <div className="font-semibold text-sm text-[#13243c] mt-1.5">{selectedUser.kbisNumber || 'Non renseigné'}</div>
           </div>
           <div className="border border-[#eceadf] bg-white rounded-[10px] p-[14px_16px]">

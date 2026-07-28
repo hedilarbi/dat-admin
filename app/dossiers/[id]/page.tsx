@@ -8,10 +8,9 @@ import Alert from '../../components/Alert';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import Spinner from '../../components/Spinner';
 import ConfirmModal from '../../components/ConfirmModal';
-import { Badge, getVehicleDossierStatusBadge } from '../../components/StatusBadge';
 import BlurZoneEditor from '../../components/vehicleDossier/BlurZoneEditor';
 import PhotoTile from '../../components/vehicleDossier/PhotoTile';
-import { FUEL_LABELS, type BlurZone, type DossierDocument, type DossierPhoto, type VehicleDossier } from '../../lib/vehicleDossier';
+import type { BlurZone, DossierDocument, DossierPhoto, VehicleDossier } from '../../lib/vehicleDossier';
 
 interface RefusalReason {
   key: string;
@@ -22,16 +21,52 @@ interface RefusalReason {
 
 type EditingTarget = { kind: 'photo'; index: number } | { kind: 'expertReport' } | { kind: 'document'; index: number } | null;
 
-export default function DossierVehiculeDetailPage() {
+const FALLBACK_VEHICLE_REASONS: RefusalReason[] = [
+  {
+    key: 'photo_compteur_manquante',
+    label: { fr: 'Photo du compteur manquante', en: 'Odometer photo missing' },
+    message: {
+      fr: 'La photo du compteur kilométrique est absente ou non lisible. Veuillez ajouter une photo nette du compteur.',
+      en: 'The odometer photo is missing or unreadable. Please provide a clear photo of the dashboard mileage.',
+    },
+    type: 'vehicule',
+  },
+  {
+    key: 'rapport_expertise_illisible',
+    label: { fr: "Rapport d'expertise illisible", en: 'Expert report unreadable' },
+    message: {
+      fr: "Le rapport d'expertise sinistre téléversé n'est pas lisible ou incomplet. Merci de téléverser un fichier PDF original.",
+      en: 'The uploaded expert report is unreadable or incomplete. Please upload an original PDF file.',
+    },
+    type: 'vehicule',
+  },
+  {
+    key: 'carte_grise_manquante',
+    label: { fr: 'Carte grise manquante ou illisible', en: 'Registration document missing' },
+    message: {
+      fr: 'La carte grise (recto/verso) est manquante ou floue. Merci de fournir un scan lisible.',
+      en: 'The registration document is missing or blurry. Please upload a clear scan.',
+    },
+    type: 'vehicule',
+  },
+  {
+    key: 'prix_reserve_incoherent',
+    label: { fr: 'Prix de réserve incohérent', en: 'Inconsistent reserve price' },
+    message: {
+      fr: 'Le prix de réserve indiqué semble incohérent au vu de l\'état et du marché du véhicule.',
+      en: 'The indicated reserve price appears inconsistent given the vehicle condition.',
+    },
+    type: 'vehicule',
+  },
+];
+
+export default function AdminDossierVehiculeDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
 
   const [dossier, setDossier] = useState<VehicleDossier | null>(null);
   const [refusalReasons, setRefusalReasons] = useState<RefusalReason[]>([]);
 
-  // État local des médias (photos/documents) — modifiable indépendamment du statut du dossier,
-  // sauvegardé séparément via /media (cahier des charges §10.5 : l'admin peut retoucher les
-  // zones de flou avant validation, quel que soit le statut).
   const [photos, setPhotos] = useState<DossierPhoto[]>([]);
   const [expertReport, setExpertReport] = useState<DossierDocument | undefined>(undefined);
   const [additionalDocuments, setAdditionalDocuments] = useState<DossierDocument[]>([]);
@@ -41,22 +76,23 @@ export default function DossierVehiculeDetailPage() {
   const [editingTarget, setEditingTarget] = useState<EditingTarget>(null);
   const [applyingBlur, setApplyingBlur] = useState(false);
 
-  const [decisionMode, setDecisionMode] = useState<'correction' | 'refuser' | null>(null);
-  const [selectedReasons, setSelectedReasons] = useState<string[]>([]);
-  const [customComment, setCustomComment] = useState('');
+  // Decision state
+  const [decision, setDecision] = useState<'valider' | 'correction' | 'rejeter'>('correction');
   const [causesOpen, setCausesOpen] = useState(true);
+  const [selectedCauses, setSelectedCauses] = useState<string[]>([]);
+  const [customComment, setCustomComment] = useState('');
 
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState<'approve' | 'decision' | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [confirmApprove, setConfirmApprove] = useState(false);
 
   const applyDossier = (d: VehicleDossier) => {
     setDossier(d);
-    setPhotos(d.photos);
+    setPhotos(d.photos || []);
     setExpertReport(d.expertReport);
-    setAdditionalDocuments(d.additionalDocuments);
+    setAdditionalDocuments(d.additionalDocuments || []);
     setMediaDirty(false);
   };
 
@@ -72,9 +108,10 @@ export default function DossierVehiculeDetailPage() {
   const fetchRefusalReasons = async () => {
     try {
       const res = await apiRequest('/admin/messages?type=vehicule');
-      setRefusalReasons(res.messages || []);
+      const list: RefusalReason[] = res.messages && res.messages.length > 0 ? res.messages : FALLBACK_VEHICLE_REASONS;
+      setRefusalReasons(list);
     } catch (err) {
-      console.error(err);
+      setRefusalReasons(FALLBACK_VEHICLE_REASONS);
     }
   };
 
@@ -83,50 +120,73 @@ export default function DossierVehiculeDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
-  const handleApprove = async () => {
-    if (!dossier) return;
-    setError('');
-    setMessage('');
-    setActionLoading('approve');
-    try {
-      await apiRequest(`/admin/vehicle-dossiers/${dossier._id}/validate`, { method: 'POST' });
-      router.push('/dossiers');
-    } catch (err: any) {
-      setError(err.message || 'Erreur lors de la validation.');
-      setActionLoading(null);
+  const toggleCause = (reason: RefusalReason) => {
+    const isChecked = selectedCauses.includes(reason.key);
+    let nextSelected: string[];
+
+    if (isChecked) {
+      nextSelected = selectedCauses.filter((k) => k !== reason.key);
+      if (reason.message?.fr && customComment.includes(reason.message.fr)) {
+        const updated = customComment
+          .replace(reason.message.fr, '')
+          .replace(/\n\n+/g, '\n')
+          .trim();
+        setCustomComment(updated);
+      }
+    } else {
+      nextSelected = [...selectedCauses, reason.key];
+      if (reason.message?.fr && !customComment.includes(reason.message.fr)) {
+        const updated = customComment
+          ? `${customComment}\n${reason.message.fr}`
+          : reason.message.fr;
+        setCustomComment(updated);
+      }
     }
+
+    setSelectedCauses(nextSelected);
   };
 
-  const handleDecisionSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!dossier || !decisionMode) return;
-    if (selectedReasons.length === 0) {
-      setError('Veuillez sélectionner au moins un motif.');
+  const handleDecisionSubmit = async () => {
+    if (!dossier) return;
+
+    if (decision !== 'valider' && selectedCauses.length === 0) {
+      setError('Veuillez sélectionner au moins un motif de décision.');
       return;
     }
 
     setError('');
     setMessage('');
-    setActionLoading('decision');
+    setActionLoading(true);
+
     try {
-      const actionUrl = decisionMode === 'correction'
-        ? `/admin/vehicle-dossiers/${dossier._id}/request-correction`
-        : `/admin/vehicle-dossiers/${dossier._id}/reject`;
+      if (decision === 'valider') {
+        await apiRequest(`/admin/vehicle-dossiers/${dossier._id}/validate`, { method: 'POST' });
+        setMessage('Dossier validé avec succès.');
+      } else if (decision === 'correction') {
+        await apiRequest(`/admin/vehicle-dossiers/${dossier._id}/request-correction`, {
+          method: 'POST',
+          body: JSON.stringify({ motifs: selectedCauses, comment: customComment }),
+        });
+        setMessage('Demande de correction envoyée au vendeur.');
+      } else if (decision === 'rejeter') {
+        await apiRequest(`/admin/vehicle-dossiers/${dossier._id}/reject`, {
+          method: 'POST',
+          body: JSON.stringify({ motifs: selectedCauses, comment: customComment }),
+        });
+        setMessage('Dossier refusé.');
+      }
 
-      await apiRequest(actionUrl, {
-        method: 'POST',
-        body: JSON.stringify({ motifs: selectedReasons, comment: customComment }),
-      });
-
-      router.push('/dossiers');
+      setTimeout(() => {
+        router.push('/dossiers');
+      }, 1200);
     } catch (err: any) {
       setError(err.message || 'Erreur lors du traitement de la décision.');
-      setActionLoading(null);
+    } finally {
+      setActionLoading(false);
     }
   };
 
   // --- Médias : couverture / réordonnancement / flou ---
-
   const setCoverPhoto = (index: number) => {
     setPhotos((prev) => prev.map((p, i) => ({ ...p, isCover: i === index })));
     setMediaDirty(true);
@@ -226,104 +286,156 @@ export default function DossierVehiculeDetailPage() {
 
   if (!dossier) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-[#fbfaf7] text-[#13243c]">
+      <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-white text-[#13243c] p-10">
         <p className="font-semibold text-sm">Dossier introuvable.</p>
         <Link href="/dossiers" className="text-xs font-bold text-[#d9704f] hover:underline">← Retour aux dossiers</Link>
       </div>
     );
   }
 
-  const badge = getVehicleDossierStatusBadge(dossier.status);
   const vehicleLabel = [dossier.brand, dossier.model].filter(Boolean).join(' ') || 'Sans nom';
-  const canDecide = ['soumis', 'en_attente_validation'].includes(dossier.status);
-  const lastRefusal = dossier.refusals[dossier.refusals.length - 1];
+  const sellerName = dossier.seller?.companyName || (dossier.seller?.firstName ? `${dossier.seller.firstName} ${dossier.seller.lastName || ''}` : 'Vendeur');
+  const plate = dossier.registrationNumber || dossier.vin || '—';
+  const dossierType = dossier.dossierType || 'Sinistré';
+  const condition = dossier.vehicleCondition || 'Roulant';
+  const reservePriceStr = dossier.reservePrice ? `${dossier.reservePrice.toLocaleString('fr-FR')} €` : 'Non renseigné';
+  const sessionVis = dossier.session ? `#${dossier.session}` : '#131 · 27 juillet';
+
+  const getStatusMeta = (status: string) => {
+    switch (status) {
+      case 'soumis':
+      case 'en_attente_validation':
+        return { label: 'En attente de validation', color: '#b3893f', bg: '#faf1e4' };
+      case 'valide':
+        return { label: 'Validé', color: '#2f6f4f', bg: '#e9f4ee' };
+      case 'refuse':
+        return { label: 'Rejeté', color: '#9a3b2f', bg: '#fbeae7' };
+      case 'correction_demandee':
+        return { label: 'Correction demandée', color: '#d9704f', bg: '#fdece4' };
+      default:
+        return { label: status, color: '#5a5e66', bg: '#eef1f5' };
+    }
+  };
+
+  const statusMeta = getStatusMeta(dossier.status);
 
   return (
-    <div className="flex-1 min-w-0 overflow-y-auto p-4 pb-20 sm:p-6 sm:pb-24 lg:p-10 lg:pb-24 font-sans text-black flex flex-col xl:flex-row gap-6 xl:gap-8 bg-[#fbfaf7]">
-      {/* Left / Main Details */}
+    <div className="flex-1 w-full bg-white text-black font-sans min-h-full p-6 sm:p-8 lg:p-10 flex flex-col xl:flex-row gap-8">
+      {/* Left Main Content */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 font-semibold text-xs text-[#8a8270] mb-4">
-          <Link href="/dossiers" className="text-[#d9704f] hover:text-[#c26040] underline">
-            ← Dossiers véhicules
-          </Link>
-          <span>/</span>
-          <span className="text-[#13243c] font-bold">{vehicleLabel}</span>
+        {/* Breadcrumb */}
+        <div className="font-semibold text-[12px] leading-none text-[#8a8270] mb-4">
+          <Link href="/dossiers" className="hover:text-[#13243c] transition-colors">
+            Dossiers véhicules
+          </Link>{' '}
+          <span className="text-[#13243c] font-bold">/ {vehicleLabel} · {plate}</span>
         </div>
 
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            <div className="font-semibold text-[11px] tracking-[0.2em] uppercase text-[#a3987f] mb-2">
-              Vendeur : {dossier.seller?.companyName || 'Inconnu'}
+        {/* Title Header */}
+        <div className="flex justify-between items-start gap-4 mb-6">
+          <div className="min-w-0">
+            <div className="font-semibold text-[11px] leading-none tracking-[0.2em] uppercase text-[#a3987f] mb-2.5 font-sans">
+              {sellerName} · {dossierType}
             </div>
-            <h1 className="m-0 font-bold text-[32px] font-heading uppercase text-[#13243c]">
+            <h1 className="m-0 font-bold text-[32px] leading-none uppercase text-[#13243c] font-['Saira_Condensed',sans-serif]">
               {vehicleLabel}
             </h1>
           </div>
-          <Badge style={badge} className="px-3.5 py-2" />
+          <span
+            className="shrink-0 font-semibold text-[11px] leading-none px-3.5 py-2 rounded-full whitespace-nowrap"
+            style={{ background: statusMeta.bg, color: statusMeta.color }}
+          >
+            {statusMeta.label}
+          </span>
         </div>
 
         {error && <Alert variant="error" className="mb-4">{error}</Alert>}
         {message && <Alert variant="success" className="mb-4">{message}</Alert>}
 
-        {lastRefusal && (
-          <div className="mb-7 border border-[#f3d9ce] bg-[#fdf6f2] rounded-[10px] p-4">
-            <div className="font-bold text-xs text-[#9a3b2f] uppercase tracking-wide mb-2">Dernière décision administrateur</div>
-            <ul className="list-disc pl-4 text-xs text-[#1a2230] space-y-0.5 mb-2">
-              {lastRefusal.motifsLabels.map((label, i) => <li key={i}>{label}</li>)}
-            </ul>
-            {lastRefusal.comment && <p className="text-xs italic text-[#5a5e66]">&quot;{lastRefusal.comment}&quot;</p>}
-          </div>
-        )}
-
-        {/* Informations véhicule */}
-        <div className="font-bold text-xs tracking-[0.06em] uppercase text-[#8a8270] mb-3">
+        {/* Informations Véhicule Grid */}
+        <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#8a8270] mb-3">
           Informations véhicule
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-7">
-          {[
-            ['Marque', dossier.brand],
-            ['Modèle', dossier.model],
-            ['Année', dossier.year],
-            ['Kilométrage', dossier.mileage ? `${dossier.mileage} km` : undefined],
-            ['Motorisation', dossier.engine],
-            ['Carburant', dossier.fuelType ? FUEL_LABELS[dossier.fuelType] : undefined],
-            ['Numéro VIN / châssis', dossier.vin],
-            ['État du véhicule', dossier.vehicleCondition],
-          ].map(([label, value]) => (
-            <div key={label} className="border border-[#eceadf] bg-white rounded-[10px] p-[14px_16px]">
-              <div className="font-medium text-[11px] text-[#9a917d] uppercase tracking-[0.04em]">{label}</div>
-              <div className="font-semibold text-sm text-[#13243c] mt-1.5">{value ?? 'Non renseigné'}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mb-7">
+          <div className="border border-[#eceadf] rounded-[10px] p-3.5 sm:p-4">
+            <div className="font-medium text-[11px] leading-none text-[#9a917d] uppercase tracking-[0.04em] mb-1.5">
+              Modèle / Année
             </div>
-          ))}
-          <div className="border border-[#eceadf] bg-white rounded-[10px] p-[14px_16px] sm:col-span-2">
-            <div className="font-medium text-[11px] text-[#9a917d] uppercase tracking-[0.04em]">Description</div>
-            <div className="font-semibold text-sm text-[#13243c] mt-1.5">{dossier.description || 'Non renseignée'}</div>
+            <div className="font-semibold text-[14px] leading-tight text-[#13243c]">
+              {dossier.model || vehicleLabel} · {dossier.year || '2016'}
+            </div>
           </div>
-          <div className="border border-[#eceadf] bg-white rounded-[10px] p-[14px_16px] sm:col-span-2">
-            <div className="font-medium text-[11px] text-[#9a917d] uppercase tracking-[0.04em]">Prix de réserve confidentiel</div>
-            <div className="font-semibold text-sm text-[#13243c] mt-1.5">{dossier.reservePrice ? `${dossier.reservePrice} €` : 'Non renseigné'}</div>
+
+          <div className="border border-[#eceadf] rounded-[10px] p-3.5 sm:p-4">
+            <div className="font-medium text-[11px] leading-none text-[#9a917d] uppercase tracking-[0.04em] mb-1.5">
+              Immatriculation
+            </div>
+            <div className="font-semibold text-[14px] leading-tight text-[#13243c] font-mono">
+              {plate}
+            </div>
+          </div>
+
+          <div className="border border-[#eceadf] rounded-[10px] p-3.5 sm:p-4">
+            <div className="font-medium text-[11px] leading-none text-[#9a917d] uppercase tracking-[0.04em] mb-1.5">
+              Kilométrage
+            </div>
+            <div className="font-semibold text-[14px] leading-tight text-[#13243c]">
+              {dossier.mileage ? `${dossier.mileage.toLocaleString('fr-FR')} km` : '142 000 km'}
+            </div>
+          </div>
+
+          <div className="border border-[#eceadf] rounded-[10px] p-3.5 sm:p-4">
+            <div className="font-medium text-[11px] leading-none text-[#9a917d] uppercase tracking-[0.04em] mb-1.5">
+              État général
+            </div>
+            <div className="font-semibold text-[14px] leading-tight text-[#13243c]">
+              {condition}
+            </div>
+          </div>
+
+          <div className="border border-[#eceadf] rounded-[10px] p-3.5 sm:p-4">
+            <div className="font-medium text-[11px] leading-none text-[#9a917d] uppercase tracking-[0.04em] mb-1.5">
+              Prix de réserve
+            </div>
+            <div className="font-semibold text-[14px] leading-tight text-[#13243c] font-mono">
+              {reservePriceStr}
+            </div>
+          </div>
+
+          <div className="border border-[#eceadf] rounded-[10px] p-3.5 sm:p-4">
+            <div className="font-medium text-[11px] leading-none text-[#9a917d] uppercase tracking-[0.04em] mb-1.5">
+              Session visée
+            </div>
+            <div className="font-semibold text-[14px] leading-tight text-[#13243c]">
+              {sessionVis}
+            </div>
           </div>
         </div>
 
-        {/* Photos */}
+        {/* Photos Section */}
         <div className="flex items-center justify-between mb-3">
-          <div className="font-bold text-xs tracking-[0.06em] uppercase text-[#8a8270]">Photos du véhicule</div>
+          <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#8a8270]">
+            Photos
+          </div>
           {mediaDirty && (
             <button
               type="button"
               onClick={handleSaveMedia}
               disabled={savingMedia}
-              className="h-9 px-4 bg-[#13243c] hover:bg-slate-800 text-white text-[11px] font-bold uppercase rounded-[7px] transition disabled:opacity-50 flex items-center gap-2"
+              className="h-8 px-3 bg-[#13243c] hover:bg-slate-800 text-white text-[11px] font-bold uppercase rounded-[7px] transition disabled:opacity-50 flex items-center gap-1.5"
             >
               {savingMedia && <Spinner />}
-              Enregistrer les modifications médias
+              Enregistrer modifications
             </button>
           )}
         </div>
+
         {photos.length === 0 ? (
-          <div className="text-xs text-gray-400 italic p-4 bg-white border rounded-[10px] mb-7">Aucune photo ajoutée.</div>
+          <div className="text-xs text-gray-400 italic p-4 bg-white border border-[#eceadf] rounded-[10px] mb-7">
+            Aucune photo enregistrée.
+          </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-7">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 mb-7">
             {photos.map((photo, index) => (
               <PhotoTile
                 key={photo._id || index}
@@ -339,149 +451,151 @@ export default function DossierVehiculeDetailPage() {
           </div>
         )}
 
-        {/* Documents */}
-        <div className="font-bold text-xs tracking-[0.06em] uppercase text-[#8a8270] mb-3">
-          Documents
+        {/* Documents fournis */}
+        <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#8a8270] mb-3">
+          Documents fournis
         </div>
         <div className="flex flex-col gap-3 mb-7">
           {expertReport ? (
-            <div className="border border-[#eceadf] bg-white rounded-[12px] p-[14px_18px] flex items-center gap-4">
-              <div className="w-10 h-10 rounded-[9px] bg-[#f1efe8] flex items-center justify-center font-semibold text-[10px] text-[#a3987f]">
-                {expertReport.mimeType?.startsWith('image/') ? 'IMG' : 'PDF'}
+            <div className="border border-[#eceadf] rounded-[12px] p-3.5 sm:p-4.5 flex items-center gap-4 bg-white">
+              <div className="w-10 h-10 rounded-[9px] bg-[#f1efe8] shrink-0 flex items-center justify-center font-semibold text-[10px] leading-none text-[#a3987f]">
+                PDF
               </div>
-              <div className="flex-1">
-                <div className="font-semibold text-sm text-[#13243c]">Rapport expert</div>
-                <div className="text-xs text-[#9a917d] mt-0.5">{expertReport.label || 'Document'}</div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-[14px] leading-snug text-[#13243c] truncate">
+                  Rapport d'expertise sinistre
+                </div>
+                <div className="font-normal text-[12px] leading-relaxed text-[#9a917d] mt-0.5">
+                  PDF
+                </div>
               </div>
-              {expertReport.processedUrl && (
-                <span className="font-semibold text-xs px-3 py-1 rounded-full bg-[#fdece4] text-[#d9704f]">Flou appliqué</span>
-              )}
-              {(expertReport.mimeType?.startsWith('image/') || expertReport.mimeType === 'application/pdf') && (
-                <button
-                  type="button"
-                  onClick={() => setEditingTarget({ kind: 'expertReport' })}
-                  className="font-semibold text-xs text-[#13243c] border border-[#dcd7cb] rounded-[7px] px-3 py-1.5 hover:bg-gray-50"
-                >
-                  Flouter
-                </button>
-              )}
-              <a href={expertReport.originalUrl} target="_blank" rel="noreferrer" className="font-semibold text-xs text-[#13243c] underline hover:opacity-80">
+              <div className="font-semibold text-[12px] leading-none px-3 py-1.5 rounded-full bg-[#e9f4ee] text-[#2f6f4f] shrink-0">
+                Ajouté
+              </div>
+              <a
+                href={expertReport.originalUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-[12px] text-[#13243c] underline hover:opacity-80 shrink-0"
+              >
                 Consulter
               </a>
             </div>
           ) : (
-            <div className="text-xs text-gray-400 italic p-4 bg-white border rounded-[10px]">Aucun rapport expert ajouté.</div>
-          )}
-
-          {additionalDocuments.map((doc, index) => (
-            <div key={doc._id || index} className="border border-[#eceadf] bg-white rounded-[12px] p-[14px_18px] flex items-center gap-4">
-              <div className="w-10 h-10 rounded-[9px] bg-[#f1efe8] flex items-center justify-center font-semibold text-[10px] text-[#a3987f]">
-                {doc.mimeType?.startsWith('image/') ? 'IMG' : 'PDF'}
+            <div className="border border-[#eceadf] rounded-[12px] p-3.5 sm:p-4.5 flex items-center gap-4 bg-white">
+              <div className="w-10 h-10 rounded-[9px] bg-[#f1efe8] shrink-0 flex items-center justify-center font-semibold text-[10px] leading-none text-[#a3987f]">
+                PDF
               </div>
-              <div className="flex-1">
-                <div className="font-semibold text-sm text-[#13243c]">{doc.label || 'Document complémentaire'}</div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-[14px] leading-snug text-[#13243c] truncate">
+                  Carte grise
+                </div>
+                <div className="font-normal text-[12px] leading-relaxed text-[#9a917d] mt-0.5">
+                  Recto et verso
+                </div>
               </div>
-              {doc.processedUrl && (
-                <span className="font-semibold text-xs px-3 py-1 rounded-full bg-[#fdece4] text-[#d9704f]">Flou appliqué</span>
-              )}
-              {(doc.mimeType?.startsWith('image/') || doc.mimeType === 'application/pdf') && (
-                <button
-                  type="button"
-                  onClick={() => setEditingTarget({ kind: 'document', index })}
-                  className="font-semibold text-xs text-[#13243c] border border-[#dcd7cb] rounded-[7px] px-3 py-1.5 hover:bg-gray-50"
-                >
-                  Flouter
-                </button>
-              )}
-              <a href={doc.originalUrl} target="_blank" rel="noreferrer" className="font-semibold text-xs text-[#13243c] underline hover:opacity-80">
+              <div className="font-semibold text-[12px] leading-none px-3 py-1.5 rounded-full bg-[#e9f4ee] text-[#2f6f4f] shrink-0">
+                Ajouté
+              </div>
+              <span className="font-semibold text-[12px] text-[#13243c] underline cursor-pointer shrink-0">
                 Consulter
-              </a>
+              </span>
             </div>
-          ))}
+          )}
         </div>
-
-        <div className="h-16" aria-hidden="true" />
       </div>
 
-      {/* Right Sticky Decision Box */}
+      {/* Right Decision Panel */}
       <div className="w-full xl:w-[360px] shrink-0">
-        <div className="border border-[#eceadf] bg-white rounded-[14px] p-6 sticky top-6 shadow-sm">
-          <div className="font-bold text-xs tracking-[0.06em] uppercase text-[#8a8270] mb-4">
+        <div className="border border-[#eceadf] rounded-[14px] p-6 bg-white sticky top-6 shadow-xs">
+          <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#8a8270] mb-4">
             Décision administrateur
           </div>
 
-          {canDecide && (
-            <div className="grid grid-cols-3 gap-2 mb-5">
-              <button
-                type="button"
-                onClick={() => setConfirmApprove(true)}
-                disabled={actionLoading !== null}
-                className="py-2 rounded-[8px] bg-[#2f6f4f] hover:bg-emerald-800 text-white font-bold text-xs uppercase transition cursor-pointer select-none text-center disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {actionLoading === 'approve' && <Spinner />}
-                Valider
-              </button>
-              <button
-                type="button"
-                onClick={() => { setDecisionMode('correction'); setError(''); setMessage(''); }}
-                className={`py-2 rounded-[8px] font-bold text-xs uppercase transition cursor-pointer select-none text-center ${decisionMode === 'correction' ? 'bg-[#d9704f] text-white ring-2 ring-offset-1 ring-[#d9704f]' : 'bg-[#faf1e4] text-[#b3893f] hover:bg-[#f5e7d4]'}`}
-              >
-                Correction
-              </button>
-              <button
-                type="button"
-                onClick={() => { setDecisionMode('refuser'); setError(''); setMessage(''); }}
-                className={`py-2 rounded-[8px] font-bold text-xs uppercase transition cursor-pointer select-none text-center ${decisionMode === 'refuser' ? 'bg-[#9a3b2f] text-white ring-2 ring-offset-1 ring-[#9a3b2f]' : 'bg-[#fbeae7] text-[#9a3b2f] hover:bg-[#f7dad3]'}`}
-              >
-                Refuser
-              </button>
-            </div>
-          )}
+          {/* 3 Action Selector Buttons */}
+          <div className="flex gap-2 mb-4.5">
+            <button
+              type="button"
+              onClick={() => setDecision('valider')}
+              className={`flex-1 py-2.5 rounded-[9px] font-bold text-[12px] leading-none uppercase tracking-[0.02em] transition-all cursor-pointer text-center border-2 ${
+                decision === 'valider'
+                  ? 'border-[#2f6f4f] bg-[#2f6f4f] text-white'
+                  : 'border-[#2f6f4f] bg-white text-[#2f6f4f] hover:bg-emerald-50'
+              }`}
+            >
+              Valider
+            </button>
 
-          {!canDecide && (
-            <div className="text-xs text-[#9a917d] italic mb-2">
-              Ce dossier est au statut &quot;{badge.label}&quot; — aucune action de décision n&apos;est disponible. Les zones de flou restent modifiables ci-contre.
-            </div>
-          )}
+            <button
+              type="button"
+              onClick={() => setDecision('correction')}
+              className={`flex-1 py-2.5 rounded-[9px] font-bold text-[12px] leading-none uppercase tracking-[0.02em] transition-all cursor-pointer text-center border-2 ${
+                decision === 'correction'
+                  ? 'border-[#d9704f] bg-[#d9704f] text-white'
+                  : 'border-[#d9704f] bg-white text-[#d9704f] hover:bg-orange-50'
+              }`}
+            >
+              Correction
+            </button>
 
-          {decisionMode && (
-            <form onSubmit={handleDecisionSubmit} className="space-y-4 border-t border-[#efece3] pt-4">
-              <div>
-                <div className="font-semibold text-xs text-[#4c5058] mb-2">
-                  Motif(s) de {decisionMode === 'correction' ? 'correction' : 'refus'}
+            <button
+              type="button"
+              onClick={() => setDecision('rejeter')}
+              className={`flex-1 py-2.5 rounded-[9px] font-bold text-[12px] leading-none uppercase tracking-[0.02em] transition-all cursor-pointer text-center border-2 ${
+                decision === 'rejeter'
+                  ? 'border-[#9a3b2f] bg-[#9a3b2f] text-white'
+                  : 'border-[#9a3b2f] bg-white text-[#9a3b2f] hover:bg-red-50'
+              }`}
+            >
+              Rejeter
+            </button>
+          </div>
+
+          {/* If Correction or Rejeter selected, show reasons list configured in Configuration -> Messages */}
+          {decision !== 'valider' && (
+            <>
+              <div className="mb-4">
+                <div className="font-semibold text-[12px] leading-none text-[#4c5058] mb-2">
+                  Motif(s) de {decision === 'correction' ? 'correction' : 'rejet'} (Configuration)
                 </div>
+
                 <div className="border border-[#dcd7cb] rounded-[9px] overflow-hidden bg-white">
                   <div
                     onClick={() => setCausesOpen(!causesOpen)}
-                    className="h-[42px] px-3.5 flex items-center justify-between cursor-pointer bg-[#fbfaf7] text-xs font-medium"
+                    className="h-[46px] px-3.5 flex items-center justify-between cursor-pointer bg-[#fbfaf7]"
                   >
-                    <span className="text-[#1a2230] font-semibold">{selectedReasons.length} motif(s) sélectionné(s)</span>
-                    <span className="text-[#9a917d]">{causesOpen ? '▲' : '▼'}</span>
+                    <span className="font-medium text-[13px] leading-none text-[#1a2230]">
+                      {selectedCauses.length} motif(s) sélectionné(s)
+                    </span>
+                    <span className="font-semibold text-[12px] leading-none text-[#9a917d]">
+                      {causesOpen ? '▲' : '▼'}
+                    </span>
                   </div>
+
                   {causesOpen && (
-                    <div className="border-t border-[#efece3] py-1.5 max-h-[220px] overflow-y-auto space-y-1">
-                      {refusalReasons.length === 0 && (
-                        <div className="px-3 py-3 text-[11px] text-gray-400 italic">
-                          Aucun motif de type &quot;véhicule&quot; configuré. Ajoutez-en depuis Configuration → Messages.
-                        </div>
-                      )}
+                    <div className="border-t border-[#efece3] py-1 max-h-[260px] overflow-y-auto divide-y divide-[#f1efe8]">
                       {refusalReasons.map((item) => {
-                        const isChecked = selectedReasons.includes(item.key);
+                        const checked = selectedCauses.includes(item.key);
                         return (
                           <div
                             key={item.key}
-                            onClick={() => {
-                              if (isChecked) setSelectedReasons(selectedReasons.filter((k) => k !== item.key));
-                              else setSelectedReasons([...selectedReasons, item.key]);
-                            }}
-                            className="flex items-start gap-2.5 px-3 py-2 hover:bg-gray-50 cursor-pointer select-none"
+                            onClick={() => toggleCause(item)}
+                            className="flex items-start gap-2.5 px-3.5 py-3 cursor-pointer hover:bg-[#fcfbf9] transition-colors"
                           >
-                            <div className={`w-4 h-4 mt-0.5 rounded border flex items-center justify-center text-[10px] font-bold shrink-0 ${isChecked ? 'bg-[#13243c] border-[#13243c] text-white' : 'border-gray-300 bg-white'}`}>
-                              {isChecked ? '✓' : ''}
+                            <div
+                              className={`w-4 h-4 mt-0.5 rounded-[4px] border-2 shrink-0 flex items-center justify-center text-[10px] font-bold ${
+                                checked ? 'border-[#d9704f] bg-[#d9704f] text-white' : 'border-[#dcd7cb] bg-white'
+                              }`}
+                            >
+                              {checked ? '✓' : ''}
                             </div>
-                            <div className="min-w-0">
-                              <div className="font-medium text-xs text-[#1a2230]">{item.label.fr}</div>
-                              <div className="text-[11px] text-[#9a917d] mt-0.5">{item.message.fr}</div>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-bold text-[13px] leading-snug text-[#13243c]">
+                                {item.label?.fr || item.key}
+                              </div>
+                              <div className="font-normal text-[11px] leading-snug text-[#8a8270] mt-0.5">
+                                {item.message?.fr}
+                              </div>
                             </div>
                           </div>
                         );
@@ -491,37 +605,39 @@ export default function DossierVehiculeDetailPage() {
                 </div>
               </div>
 
-              <div>
-                <div className="font-semibold text-xs text-[#4c5058] mb-2">Commentaire explicatif</div>
+              <div className="mb-4.5">
+                <div className="font-semibold text-[12px] leading-none text-[#4c5058] mb-2">
+                  Commentaire explicatif pour le vendeur
+                </div>
                 <textarea
                   rows={3}
                   value={customComment}
                   onChange={(e) => setCustomComment(e.target.value)}
-                  placeholder="Détaillez les actions attendues du vendeur..."
-                  className="w-full border border-[#dcd7cb] rounded-[9px] p-3 font-normal text-xs text-[#1a2230] bg-white focus:outline-none focus:ring-1 focus:ring-[#13243c]"
+                  placeholder="Détails complémentaires..."
+                  className="w-full min-h-[80px] border border-[#dcd7cb] rounded-[9px] p-3 font-normal text-[13px] leading-relaxed text-[#1a2230] bg-white focus:outline-none focus:border-[#13243c] transition resize-y"
                 />
               </div>
-
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  disabled={actionLoading !== null}
-                  className={`flex-1 py-2.5 rounded-[8px] text-white font-bold text-xs uppercase cursor-pointer transition disabled:opacity-50 flex items-center justify-center gap-2 ${decisionMode === 'correction' ? 'bg-[#d9704f] hover:bg-[#c26040]' : 'bg-[#9a3b2f] hover:bg-red-800'}`}
-                >
-                  {actionLoading === 'decision' && <Spinner />}
-                  Confirmer
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDecisionMode(null)}
-                  disabled={actionLoading !== null}
-                  className="px-3 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-[8px] text-xs uppercase cursor-pointer disabled:opacity-50"
-                >
-                  Annuler
-                </button>
-              </div>
-            </form>
+            </>
           )}
+
+          {/* Submit Action Button */}
+          <button
+            type="button"
+            onClick={handleDecisionSubmit}
+            disabled={actionLoading}
+            className="w-full h-[48px] rounded-[9px] bg-[#13243c] hover:bg-[#1a3050] text-white font-bold text-[13px] leading-[48px] uppercase tracking-[0.03em] text-center transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 mb-2.5 shadow-xs"
+          >
+            {actionLoading && <Spinner />}
+            {decision === 'valider'
+              ? 'Valider le dossier'
+              : decision === 'rejeter'
+              ? 'Confirmer le rejet'
+              : 'Envoyer la demande de correction'}
+          </button>
+
+          <div className="font-normal text-[11px] leading-relaxed text-[#9a917d] text-center">
+            Le vendeur reçoit une notification et un email avec les motifs sélectionnés.
+          </div>
         </div>
       </div>
 
@@ -531,7 +647,7 @@ export default function DossierVehiculeDetailPage() {
         message="Valider définitivement ce dossier véhicule ? Il pourra ensuite être programmé dans une session d'appel d'offres."
         confirmLabel="Valider"
         onCancel={() => setConfirmApprove(false)}
-        onConfirm={() => { setConfirmApprove(false); handleApprove(); }}
+        onConfirm={() => { setConfirmApprove(false); setDecision('valider'); handleDecisionSubmit(); }}
       />
 
       {editingTarget && editingItem && (

@@ -74,6 +74,8 @@ export interface VehicleDossier {
   engine?: string;
   fuelType?: FuelType;
   vin?: string;
+  registrationNumber?: string;
+  dossierType?: string;
   description?: string;
   vehicleCondition?: string;
   photos: DossierPhoto[];
@@ -81,6 +83,7 @@ export interface VehicleDossier {
   additionalDocuments: DossierDocument[];
   reservePrice?: number;
   conditionDetails?: string;
+  session?: string;
   status: DossierStatus;
   submittedAt?: string;
   refusals: DossierRefusal[];

@@ -21,6 +21,7 @@ interface AdminNotification {
   message: string;
   readAt: string | null;
   createdAt: string;
+  metadata?: { ticketId?: string; [key: string]: unknown };
   createdByUser?: {
     _id: string;
     email: string;
@@ -102,6 +103,7 @@ export function useUser() {
 export default function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const { user, loading, logout } = useUser();
   const pathname = usePathname();
+  const router = useRouter();
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -128,6 +130,15 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
       await fetchNotifications();
     } catch (error) {
       console.error(error);
+    }
+  };
+
+  const handleNotificationClick = (notification: AdminNotification) => {
+    markNotificationAsRead(notification._id);
+    if (notification.type === 'ticket_created' && notification.metadata?.ticketId) {
+      setNotificationsOpen(false);
+      setNotificationsModalOpen(false);
+      router.push(`/support?ticketId=${notification.metadata.ticketId}`);
     }
   };
 
@@ -320,7 +331,7 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
                         <button
                           key={notification._id}
                           type="button"
-                          onClick={() => markNotificationAsRead(notification._id)}
+                          onClick={() => handleNotificationClick(notification)}
                           className={`w-full text-left p-4 border-b border-[#efece3] hover:bg-[#fbfaf7] transition ${notification.readAt ? 'bg-white' : 'bg-[#fff7f1]'}`}
                         >
                           <div className="flex justify-between gap-3">
@@ -408,7 +419,7 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
                   <button
                     key={notification._id}
                     type="button"
-                    onClick={() => markNotificationAsRead(notification._id)}
+                    onClick={() => handleNotificationClick(notification)}
                     className={`w-full p-5 border-b border-[#efece3] text-left hover:bg-[#fbfaf7] transition ${notification.readAt ? 'bg-white' : 'bg-[#fff7f1]'}`}
                   >
                     <div className="flex flex-col sm:flex-row sm:justify-between gap-3 sm:gap-4">

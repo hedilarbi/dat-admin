@@ -6,11 +6,10 @@ import Alert from '../Alert';
 import Spinner from '../Spinner';
 import type { BlurZone, PdfPage } from '../../lib/vehicleDossier';
 
-const MIN_ZONE_FRACTION = 0.01; // ~1% de la dimension de l'image : filtre les clics accidentels
+const MIN_ZONE_FRACTION = 0.01;
 
 interface BlurZoneEditorProps {
   imageUrl: string;
-  /** 'application/pdf' bascule l'éditeur en mode multi-page (rendu + zones par page). */
   mimeType?: string;
   zones: BlurZone[];
   onZonesChange: (zones: BlurZone[]) => void;
@@ -36,15 +35,14 @@ export default function BlurZoneEditor({ imageUrl, mimeType, zones, onZonesChang
     setPagesError('');
     apiRequest('/vehicle-dossiers/media/pdf-pages', { method: 'POST', body: JSON.stringify({ pdfUrl: imageUrl }) })
       .then((res) => { if (!cancelled) setPdfPages(res.pages); })
-      .catch((err: any) => { if (!cancelled) setPagesError(err.message || 'Impossible de charger les pages de ce document.'); })
+      .catch((err) => { if (!cancelled) setPagesError(err.message || "Impossible de charger les pages du PDF."); })
       .finally(() => { if (!cancelled) setLoadingPages(false); });
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPdf, imageUrl]);
 
   const displaySrc = isPdf ? pdfPages?.[currentPageIndex]?.dataUrl : imageUrl;
 
-  // Zones de la page courante, avec leur index dans le tableau complet (pour suppression/édition
-  // correctes) — en mode image, toutes les zones appartiennent à la "page" implicite 0.
   const pageZoneEntries = zones
     .map((zone, index) => ({ zone, index }))
     .filter(({ zone }) => (zone.page ?? 0) === currentPageIndex);
@@ -94,20 +92,32 @@ export default function BlurZoneEditor({ imageUrl, mimeType, zones, onZonesChang
     : pageZoneEntries;
 
   return (
-    <div className="fixed inset-0 z-[300] bg-black/70 flex items-center justify-center p-4 sm:p-8" onClick={onClose}>
+    <div className="fixed inset-0 z-[300] bg-black/75 flex items-center justify-center p-3 sm:p-6" onClick={onClose}>
       <div
-        className="bg-white rounded-[12px] w-full max-w-[860px] max-h-full overflow-y-auto shadow-2xl"
+        className="bg-white rounded-[16px] w-full max-w-[860px] max-h-[90vh] flex flex-col shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-[#efece3]">
+        {/* Fixed Header */}
+        <div className="shrink-0 flex items-center justify-between p-4 sm:p-5 border-b border-[#efece3] bg-white z-10">
           <div>
-            <h3 className="text-[18px] font-bold text-[#13243c] uppercase">Flouter des zones sensibles</h3>
-            <p className="text-[12px] text-[#8a8270] mt-1">Cliquez et glissez sur l&apos;image pour dessiner une zone à flouter (plaque, enseigne, VIN...).</p>
+            <h3 className="text-[18px] font-bold font-heading uppercase text-[#13243c]">
+              Éditeur de zones de flou
+            </h3>
+            <p className="text-[12px] text-[#8a8270] mt-0.5">
+              Tracé libre : cliquez et glissez sur l'image pour ajouter des rectangles d'anonymisation.
+            </p>
           </div>
-          <button type="button" onClick={onClose} className="text-[#8a8270] hover:text-[#13243c] text-2xl leading-none px-2">×</button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-[#8a8270] hover:text-[#13243c] text-2xl leading-none px-2"
+          >
+            ×
+          </button>
         </div>
 
-        <div className="p-4 sm:p-6">
+        {/* Scrollable Body */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 bg-[#fbfaf7]">
           {isPdf && pdfPages && pdfPages.length > 1 && (
             <div className="flex items-center justify-center gap-3 mb-4">
               <button
@@ -141,7 +151,7 @@ export default function BlurZoneEditor({ imageUrl, mimeType, zones, onZonesChang
           ) : (
             <div
               ref={containerRef}
-              className="relative select-none touch-none w-full bg-[#13243c] rounded-[9px] overflow-hidden cursor-crosshair"
+              className="relative select-none touch-none w-full bg-[#13243c] rounded-[9px] overflow-hidden cursor-crosshair max-h-[60vh]"
               style={{ aspectRatio: '4 / 3' }}
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
@@ -172,7 +182,7 @@ export default function BlurZoneEditor({ imageUrl, mimeType, zones, onZonesChang
                       type="button"
                       onClick={() => removeZone(index)}
                       className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-[#d9704f] text-white text-[13px] font-bold flex items-center justify-center shadow"
-                      aria-label="Retirer cette zone"
+                      aria-label="Supprimer la zone"
                     >
                       ×
                     </button>
@@ -193,23 +203,33 @@ export default function BlurZoneEditor({ imageUrl, mimeType, zones, onZonesChang
           )}
         </div>
 
-        <div className="p-4 sm:p-6 border-t border-[#efece3] flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-11 px-6 border border-[#dcd7cb] rounded-[9px] text-[#13243c] font-semibold hover:bg-gray-50 transition"
-          >
-            Fermer
-          </button>
-          <button
-            type="button"
-            onClick={onValidate}
-            disabled={validating || (isPdf && loadingPages)}
-            className="h-11 px-6 bg-[#13243c] hover:bg-slate-800 text-white font-bold rounded-[9px] uppercase tracking-[0.03em] transition disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {validating && <Spinner />}
-            {validating ? 'Floutage en cours...' : 'Valider le flou'}
-          </button>
+        {/* Always-Visible Fixed Footer */}
+        <div className="shrink-0 p-4 sm:p-5 border-t border-[#efece3] bg-white flex flex-col sm:flex-row items-center justify-between gap-3 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] z-10">
+          <div className="text-[12px] text-[#8a8270] font-medium hidden sm:block">
+            {pageZoneEntries.length > 0
+              ? `${pageZoneEntries.length} zone(s) de flou configurée(s)`
+              : 'Tracé libre : cliquez et glissez sur l\'image pour créer une zone floue.'}
+          </div>
+
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-11 px-5 border border-[#dcd7cb] rounded-[9px] text-[#13243c] font-semibold text-[13px] hover:bg-gray-50 transition"
+            >
+              {pageZoneEntries.length > 0 ? 'Annuler' : 'Passer (sans flou)'}
+            </button>
+
+            <button
+              type="button"
+              onClick={onValidate}
+              disabled={validating || (isPdf && loadingPages)}
+              className="h-11 px-6 bg-[#13243c] hover:bg-slate-800 text-white font-bold text-[13px] rounded-[9px] uppercase tracking-[0.03em] transition shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {validating && <Spinner />}
+              {validating ? 'Application...' : pageZoneEntries.length > 0 ? 'Valider le floutage' : 'Valider'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

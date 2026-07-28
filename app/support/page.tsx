@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { apiRequest } from '../api';
 import Alert from '../components/Alert';
 import Spinner from '../components/Spinner';
@@ -35,6 +35,7 @@ interface Ticket {
 
 export default function AdminSupportPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -83,6 +84,12 @@ export default function AdminSupportPage() {
       setError(err.message);
     }
   };
+
+  // Sélection automatique du ticket ciblé par une notification (?ticketId=...)
+  useEffect(() => {
+    const ticketId = searchParams.get('ticketId');
+    if (ticketId) fetchTicketDetails(ticketId);
+  }, [searchParams]);
 
   const handleSendAdminReply = async (e: React.FormEvent) => {
     e.preventDefault();

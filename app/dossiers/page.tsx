@@ -3,12 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiRequest } from '../api';
-import PageHeader from '../components/PageHeader';
 import Alert from '../components/Alert';
 import SkeletonRows from '../components/SkeletonRows';
-import StatCard from '../components/StatCard';
-import FilterPills from '../components/FilterPills';
-import { Badge, getVehicleDossierStatusBadge } from '../components/StatusBadge';
 import type { VehicleDossier } from '../lib/vehicleDossier';
 
 interface DossierCounts {
@@ -18,23 +14,19 @@ interface DossierCounts {
   refuse: number;
 }
 
-const EMPTY_COUNTS: DossierCounts = { enAttente: 0, correction: 0, valide: 0, refuse: 0 };
-
 const STATUS_FILTERS = [
   { value: 'all', label: 'Tous' },
   { value: 'soumis', label: 'En attente' },
   { value: 'correction_demandee', label: 'Correction demandée' },
   { value: 'valide', label: 'Validés' },
-  { value: 'refuse', label: 'Refusés' },
+  { value: 'refuse', label: 'Rejetés' },
 ];
-
-const PAGE_LIMIT = 20;
 
 export default function AdminDossiersPage() {
   const router = useRouter();
 
   const [dossiers, setDossiers] = useState<VehicleDossier[]>([]);
-  const [counts, setCounts] = useState<DossierCounts>(EMPTY_COUNTS);
+  const [counts, setCounts] = useState<DossierCounts>({ enAttente: 0, correction: 0, valide: 0, refuse: 0 });
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -55,11 +47,6 @@ export default function AdminDossiersPage() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const handleStatusFilterChange = (value: string) => {
-    setStatusFilter(value);
-    setPage(1);
-  };
-
   useEffect(() => {
     const fetchDossiers = async () => {
       setFetching(true);
@@ -68,13 +55,13 @@ export default function AdminDossiersPage() {
         if (statusFilter !== 'all') params.set('status', statusFilter);
         if (debouncedSearch) params.set('search', debouncedSearch);
         params.set('page', String(page));
-        params.set('limit', String(PAGE_LIMIT));
+        params.set('limit', '20');
 
         const res = await apiRequest(`/admin/vehicle-dossiers?${params.toString()}`);
-        setDossiers(res.dossiers);
-        setTotal(res.total);
-        setTotalPages(res.totalPages);
-        setCounts(res.counts);
+        setDossiers(res.dossiers || []);
+        setTotal(res.total || 0);
+        setTotalPages(res.totalPages || 1);
+        if (res.counts) setCounts(res.counts);
       } catch (err: any) {
         setError(err.message || 'Erreur de chargement des dossiers.');
       } finally {
@@ -86,100 +73,169 @@ export default function AdminDossiersPage() {
     fetchDossiers();
   }, [statusFilter, debouncedSearch, page]);
 
+  const getStatusMeta = (status: string) => {
+    switch (status) {
+      case 'soumis':
+      case 'en_attente_validation':
+        return { label: 'En attente', color: '#b3893f', bg: '#faf1e4' };
+      case 'valide':
+        return { label: 'Validé', color: '#2f6f4f', bg: '#e9f4ee' };
+      case 'refuse':
+        return { label: 'Rejeté', color: '#9a3b2f', bg: '#fbeae7' };
+      case 'correction_demandee':
+        return { label: 'Correction demandée', color: '#d9704f', bg: '#fdece4' };
+      default:
+        return { label: status, color: '#5a5e66', bg: '#eef1f5' };
+    }
+  };
+
   if (loading) {
     return (
-      <div className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 lg:p-10 font-sans bg-[#fbfaf7]">
-        <div className="border border-[#eceadf] bg-white rounded-[12px] overflow-hidden shadow-sm">
-          <SkeletonRows />
-        </div>
+      <div className="flex-1 w-full p-6 sm:p-8 lg:p-10 font-sans text-black bg-white">
+        <SkeletonRows />
       </div>
     );
   }
 
   return (
-    <div className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 lg:p-10 font-sans text-black bg-[#fbfaf7]">
-      <PageHeader
-        eyebrow="Validation & Inspection des publications"
-        title="Dossiers Véhicules (VHU / Occasions)"
-        action={
-          <input
-            type="text"
-            placeholder="Rechercher marque, modèle, VIN…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full sm:w-[280px] h-[42px] border border-[#dcd7cb] rounded-[9px] px-4 text-xs text-[#1a2230] bg-white focus:outline-none focus:ring-1 focus:ring-[#13243c]"
-          />
-        }
-      />
+    <div className="flex-1 w-full p-6 sm:p-8 lg:p-10 font-sans text-black bg-white min-h-full">
+      {/* Header Section */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
+        <div>
+          <div className="font-semibold text-[11px] leading-none tracking-[0.2em] uppercase text-[#a3987f] mb-2.5 font-sans">
+            Validation des annonces
+          </div>
+          <h1 className="m-0 font-bold text-[36px] leading-none uppercase text-[#13243c] font-['Saira_Condensed',sans-serif]">
+            Dossiers véhicules
+          </h1>
+        </div>
 
-      <div className="grid grid-cols-1 min-[400px]:grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-7">
-        <StatCard label="En attente" value={counts.enAttente} bg="#faf1e4" labelColor="#b3893f" />
-        <StatCard label="Correction demandée" value={counts.correction} bg="#fdece4" labelColor="#d9704f" />
-        <StatCard label="Validés" value={counts.valide} bg="#e9f4ee" labelColor="#2f6f4f" />
-        <StatCard label="Refusés" value={counts.refuse} bg="#fbeae7" labelColor="#9a3b2f" />
+        <input
+          type="text"
+          placeholder="Rechercher marque, immat, vendeur…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full sm:w-[280px] h-[42px] border border-[#dcd7cb] rounded-[9px] px-3.5 font-normal text-[13px] text-[#1a2230] bg-white focus:outline-none focus:border-[#13243c] placeholder-[#9a917d] transition"
+        />
       </div>
 
-      <div className="mb-5">
-        <FilterPills
-          options={STATUS_FILTERS}
-          value={statusFilter}
-          onChange={handleStatusFilterChange}
-          baseClassName="font-bold text-xs px-4 py-2 rounded-full transition"
-          activeClassName="bg-[#d9704f] text-white"
-          inactiveClassName="bg-white border border-[#e2ddd1] text-[#4c5058] hover:bg-gray-50"
-        />
+      {/* 4 Stat Cards Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6.5">
+        <div className="bg-[#faf1e4] rounded-[12px] p-4 sm:p-[16px_20px]">
+          <div className="font-semibold text-[11px] uppercase tracking-[0.05em] text-[#b3893f]">
+            En attente
+          </div>
+          <div className="font-bold text-[30px] leading-none text-[#13243c] mt-2 font-['Saira_Condensed',sans-serif]">
+            {counts.enAttente || 0}
+          </div>
+        </div>
+
+        <div className="bg-[#fdece4] rounded-[12px] p-4 sm:p-[16px_20px]">
+          <div className="font-semibold text-[11px] uppercase tracking-[0.05em] text-[#d9704f]">
+            Correction demandée
+          </div>
+          <div className="font-bold text-[30px] leading-none text-[#13243c] mt-2 font-['Saira_Condensed',sans-serif]">
+            {counts.correction || 0}
+          </div>
+        </div>
+
+        <div className="bg-[#e9f4ee] rounded-[12px] p-4 sm:p-[16px_20px]">
+          <div className="font-semibold text-[11px] uppercase tracking-[0.05em] text-[#2f6f4f]">
+            Validés ce mois
+          </div>
+          <div className="font-bold text-[30px] leading-none text-[#13243c] mt-2 font-['Saira_Condensed',sans-serif]">
+            {counts.valide || 0}
+          </div>
+        </div>
+
+        <div className="bg-[#fbeae7] rounded-[12px] p-4 sm:p-[16px_20px]">
+          <div className="font-semibold text-[11px] uppercase tracking-[0.05em] text-[#9a3b2f]">
+            Rejetés
+          </div>
+          <div className="font-bold text-[30px] leading-none text-[#13243c] mt-2 font-['Saira_Condensed',sans-serif]">
+            {counts.refuse || 0}
+          </div>
+        </div>
+      </div>
+
+      {/* Filter Pills */}
+      <div className="flex items-center gap-2.5 mb-4.5 overflow-x-auto pb-1">
+        {STATUS_FILTERS.map((f) => {
+          const isActive = statusFilter === f.value;
+          return (
+            <button
+              key={f.value}
+              type="button"
+              onClick={() => { setStatusFilter(f.value); setPage(1); }}
+              className={`px-4 py-2 rounded-full font-semibold text-[12px] leading-none transition-all ${
+                isActive
+                  ? 'bg-[#d9704f] text-white font-bold'
+                  : 'bg-white border border-[#e2ddd1] text-[#4c5058] hover:bg-gray-50'
+              }`}
+            >
+              {f.label}
+            </button>
+          );
+        })}
       </div>
 
       {error && <Alert variant="error" className="mb-4">{error}</Alert>}
 
-      <div className={`border border-[#eceadf] bg-white rounded-[12px] overflow-hidden shadow-sm transition-opacity ${fetching ? 'opacity-60' : ''}`}>
-        <div className="hidden md:grid grid-cols-6 gap-4 p-[14px_20px] bg-[#f8f7f2] font-semibold text-[11px] uppercase tracking-[0.05em] text-[#8a8270] border-b border-[#efece3]">
-          <div className="col-span-2">Véhicule / Vendeur</div>
-          <div>VIN</div>
-          <div>Prix de réserve</div>
+      {/* Table */}
+      <div className={`border border-[#eceadf] rounded-[12px] overflow-hidden bg-white shadow-xs transition-opacity ${fetching ? 'opacity-60' : ''}`}>
+        <div className="grid grid-cols-[2fr_1fr_1.1fr_1fr_1fr_1fr_80px] p-[14px_20px] bg-[#f8f7f2] font-semibold text-[11px] uppercase tracking-[0.05em] text-[#8a8270] border-b border-[#efece3]">
+          <div>Véhicule</div>
+          <div>Immat.</div>
+          <div>Vendeur</div>
+          <div>Type</div>
           <div>Soumis le</div>
-          <div className="text-right">Statut</div>
+          <div>Statut</div>
+          <div></div>
         </div>
 
         {dossiers.length === 0 ? (
-          <div className="p-10 text-center text-gray-400 text-sm italic">
-            Aucun dossier véhicule ne correspond aux critères.
+          <div className="p-10 text-center text-[#9a917d] font-medium text-sm">
+            Aucun dossier véhicule trouvé.
           </div>
         ) : (
-          dossiers.map((dossier) => {
-            const cover = dossier.photos.find((p) => p.isCover) || dossier.photos[0];
-            const label = [dossier.brand, dossier.model].filter(Boolean).join(' ') || 'Sans nom';
+          dossiers.map((row) => {
+            const vehicleName = [row.brand, row.model].filter(Boolean).join(' ') || 'Sans nom';
+            const plate = row.registrationNumber || row.vin || '—';
+            const sellerName = row.seller?.companyName || (row.seller?.firstName ? `${row.seller.firstName} ${row.seller.lastName || ''}` : 'Vendeur');
+            const dateStr = row.submittedAt ? new Date(row.submittedAt).toLocaleDateString('fr-FR') : '—';
+            const meta = getStatusMeta(row.status);
 
             return (
               <div
-                key={dossier._id}
-                onClick={() => router.push(`/dossiers/${dossier._id}`)}
-                className="grid grid-cols-1 md:grid-cols-6 gap-3 md:gap-4 p-[16px_20px] border-b border-[#efece3] items-center font-medium text-[13px] text-[#1a2230] hover:bg-[#fcfbf9] cursor-pointer transition"
+                key={row._id}
+                onClick={() => router.push(`/dossiers/${row._id}`)}
+                className="grid grid-cols-[2fr_1fr_1.1fr_1fr_1fr_1fr_80px] p-[16px_20px] border-t border-[#efece3] first:border-t-0 items-center font-medium text-[13px] leading-snug text-[#1a2230] hover:bg-[#fcfbf9] cursor-pointer transition"
               >
-                <div className="col-span-2 flex items-center gap-3">
-                  <div className="w-[52px] h-[40px] rounded-[7px] bg-[#13243c] shrink-0 overflow-hidden">
-                    {cover && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={cover.processedUrl || cover.originalUrl} alt="" className="w-full h-full object-cover" />
-                    )}
-                  </div>
-                  <div>
-                    <div className="font-bold text-sm text-[#13243c]">{label}</div>
-                    <div className="text-xs text-gray-500 mt-0.5">{dossier.seller?.companyName || 'Vendeur inconnu'}</div>
-                  </div>
+                <div className="font-semibold text-[14px] text-[#13243c] truncate">
+                  {vehicleName}
                 </div>
-
-                <div className="text-gray-600 font-mono text-xs">{dossier.vin || '—'}</div>
-
-                <div className="text-gray-600">{dossier.reservePrice ? `${dossier.reservePrice} €` : '—'}</div>
-
-                <div className="text-xs text-gray-500">
-                  {dossier.submittedAt ? new Date(dossier.submittedAt).toLocaleDateString('fr-FR') : '—'}
+                <div className="text-[#5a5e66] font-mono text-[13px] truncate">
+                  {plate}
                 </div>
-
-                <div className="flex items-center justify-between md:justify-end gap-3">
-                  <Badge style={getVehicleDossierStatusBadge(dossier.status)} />
-                  <span className="font-bold text-xs text-[#d9704f] hover:underline">Voir →</span>
+                <div className="text-[#5a5e66] truncate">
+                  {sellerName}
+                </div>
+                <div className="text-[#5a5e66] truncate">
+                  {row.dossierType || 'Sinistré'}
+                </div>
+                <div className="text-[#5a5e66] truncate">
+                  {dateStr}
+                </div>
+                <div>
+                  <span
+                    className="inline-block font-semibold text-[11px] leading-none px-3 py-1.5 rounded-full"
+                    style={{ background: meta.bg, color: meta.color }}
+                  >
+                    {meta.label}
+                  </span>
+                </div>
+                <div className="font-semibold text-[12px] text-[#d9704f] hover:underline text-right">
+                  Voir →
                 </div>
               </div>
             );
