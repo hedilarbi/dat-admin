@@ -109,10 +109,12 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationsModalOpen, setNotificationsModalOpen] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
+  const [inscriptionsOpen, setInscriptionsOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const isAuthPage = pathname === '/login' || pathname === '/';
   const isConfigSection = pathname.startsWith('/configuration');
+  const isInscriptionsSection = pathname.startsWith('/inscriptions');
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -250,9 +252,24 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
             <Link href="/dashboard" className={`flex items-center px-[14px] py-[12px] rounded-[9px] font-[500] text-[14px] transition ${pathname === '/dashboard' ? 'bg-[#1c3050] text-white font-semibold' : 'text-[#9fb0c9] hover:bg-[#1a2b44]'}`}>
               Tableau de bord
             </Link>
-            <Link href="/inscriptions" className={`flex items-center px-[14px] py-[12px] rounded-[9px] font-[500] text-[14px] transition ${pathname.startsWith('/inscriptions') ? 'bg-[#1c3050] text-white font-semibold' : 'text-[#9fb0c9] hover:bg-[#1a2b44]'}`}>
-              Inscriptions
-            </Link>
+            <button
+              type="button"
+              onClick={() => setInscriptionsOpen(o => !o)}
+              className={`w-full flex items-center justify-between px-[14px] py-[12px] rounded-[9px] font-[500] text-[14px] transition cursor-pointer ${isInscriptionsSection ? 'bg-[#1c3050] text-white font-semibold' : 'text-[#9fb0c9] hover:bg-[#1a2b44]'}`}
+            >
+              <span>Inscriptions</span>
+              <ChevronDown size={14} className={`transition-transform ${inscriptionsOpen || isInscriptionsSection ? 'rotate-180' : ''}`} />
+            </button>
+            {(inscriptionsOpen || isInscriptionsSection) && (
+              <div className="pl-3 flex flex-col gap-1">
+                <Link href="/inscriptions/vendeur" className={`flex items-center px-[14px] py-[10px] rounded-[9px] font-[500] text-[13px] transition ${pathname.startsWith('/inscriptions/vendeur') ? 'bg-[#1c3050] text-white font-semibold' : 'text-[#9fb0c9] hover:bg-[#1a2b44]'}`}>
+                  Vendeur
+                </Link>
+                <Link href="/inscriptions/acheteur" className={`flex items-center px-[14px] py-[10px] rounded-[9px] font-[500] text-[13px] transition ${pathname.startsWith('/inscriptions/acheteur') || (pathname.startsWith('/inscriptions/') && !pathname.startsWith('/inscriptions/vendeur')) ? 'bg-[#1c3050] text-white font-semibold' : 'text-[#9fb0c9] hover:bg-[#1a2b44]'}`}>
+                  Acheteur
+                </Link>
+              </div>
+            )}
             <Link href="/dossiers" className={`flex items-center px-[14px] py-[12px] rounded-[9px] font-[500] text-[14px] transition ${pathname === '/dossiers' ? 'bg-[#1c3050] text-white font-semibold' : 'text-[#9fb0c9] hover:bg-[#1a2b44]'}`}>
               Dossiers véhicules
             </Link>

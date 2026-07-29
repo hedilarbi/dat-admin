@@ -162,7 +162,7 @@ export default function InscriptionDetailPage() {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-[#fbfaf7] text-[#13243c]">
         <p className="font-semibold text-sm">Dossier introuvable.</p>
-        <Link href="/inscriptions" className="text-xs font-bold text-[#d9704f] hover:underline">← Retour aux inscriptions</Link>
+        <Link href="/inscriptions/acheteur" className="text-xs font-bold text-[#d9704f] hover:underline">← Retour aux inscriptions</Link>
       </div>
     );
   }
@@ -174,8 +174,8 @@ export default function InscriptionDetailPage() {
       {/* Left / Main Details */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 font-semibold text-xs text-[#8a8270] mb-4">
-          <Link href="/inscriptions" className="text-[#d9704f] hover:text-[#c26040] underline">
-            ← Inscriptions
+          <Link href={`/inscriptions/${selectedUser.role === 'vendeur' ? 'vendeur' : 'acheteur'}`} className="text-[#d9704f] hover:text-[#c26040] underline">
+            ← Inscriptions {selectedUser.role === 'vendeur' ? 'vendeurs' : 'acheteurs'}
           </Link>
           <span>/</span>
           <span className="text-[#13243c] font-bold">{selectedUser.companyName}</span>

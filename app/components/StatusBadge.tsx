@@ -10,18 +10,18 @@ export interface BadgeStyle {
 export function getInscriptionStatusBadge(status: string): BadgeStyle {
   switch (status) {
     case 'soumis':
-      return { label: 'En attente', color: '#b3893f', bg: '#faf1e4' };
+      return { label: 'En attente', color: '#ffffff', bg: '#f59e0b' };
     case 'valide':
-      return { label: 'Validé', color: '#2f6f4f', bg: '#e9f4ee' };
+      return { label: 'Validé', color: '#ffffff', bg: '#16a34a' };
     case 'correction_demandee':
-      return { label: 'Correction demandée', color: '#d9704f', bg: '#fdece4' };
+      return { label: 'Correction demandée', color: '#ffffff', bg: '#f97316' };
     case 'refuse':
-      return { label: 'Refusée', color: '#9a3b2f', bg: '#fbeae7' };
+      return { label: 'Refusée', color: '#ffffff', bg: '#dc2626' };
     case 'bloque':
     case 'suspendu':
-      return { label: 'Suspendu / Bloqué', color: '#9a3b2f', bg: '#fbeae7' };
+      return { label: 'Suspendu / Bloqué', color: '#ffffff', bg: '#991b1b' };
     default:
-      return { label: status, color: '#8a8270', bg: '#f1efe8' };
+      return { label: status, color: '#ffffff', bg: '#6b7280' };
   }
 }
 
