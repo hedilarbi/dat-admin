@@ -76,14 +76,14 @@ export default function AdminDossiersPage() {
 
   if (loading) {
     return (
-      <div className="flex-1 w-full p-6 sm:p-8 lg:p-10 font-sans text-black bg-white">
+      <div className="flex-1 w-full px-6 pt-6 pb-16 sm:px-8 sm:pt-8 sm:pb-20 lg:px-10 lg:pt-10 lg:pb-24 font-sans text-black bg-white">
         <SkeletonRows />
       </div>
     );
   }
 
   return (
-    <div className="flex-1 w-full p-6 sm:p-8 lg:p-10 font-sans text-black bg-white min-h-full">
+    <div className="flex-1 w-full px-6 pt-6 pb-16 sm:px-8 sm:pt-8 sm:pb-20 lg:px-10 lg:pt-10 lg:pb-24 font-sans text-black bg-white min-h-full">
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
         <div>
@@ -133,7 +133,7 @@ export default function AdminDossiersPage() {
           <div>Véhicule</div>
           <div>Immat.</div>
           <div>Vendeur</div>
-          <div>Type</div>
+          <div>Procédure</div>
           <div>Soumis le</div>
           <div>Statut</div>
           <div></div>
@@ -167,7 +167,7 @@ export default function AdminDossiersPage() {
                   {sellerName}
                 </div>
                 <div className="text-[#5a5e66] truncate">
-                  {row.dossierType || 'Sinistré'}
+                  {row.procedure || '—'}
                 </div>
                 <div className="text-[#5a5e66] truncate">
                   {dateStr}

@@ -333,7 +333,7 @@ export default function AdminSessionsPage() {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="min-h-full shrink-0 w-full p-6 sm:p-8 lg:p-10 font-sans text-black bg-white flex flex-col relative">
+    <div className="min-h-full shrink-0 w-full px-6 pt-6 pb-16 sm:px-8 sm:pt-8 sm:pb-20 lg:px-10 lg:pt-10 lg:pb-24 font-sans text-black bg-white flex flex-col relative">
       {/* Header Section */}
       <div className="flex flex-wrap gap-4 justify-between items-end mb-6.5">
         <div>

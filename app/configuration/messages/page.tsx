@@ -114,6 +114,34 @@ export default function MessagesConfigurationPage() {
     setSuccess('');
   };
 
+  const closeForm = () => {
+    if (saving) return;
+    setFormOpen(false);
+    resetForm();
+    setError('');
+  };
+
+  useEffect(() => {
+    if (!formOpen) return;
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !saving) {
+        setFormOpen(false);
+        resetForm();
+        setError('');
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [formOpen, saving]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -206,42 +234,38 @@ export default function MessagesConfigurationPage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-2.5">
-          <button
-            type="button"
-            onClick={() => startCreate('inscription')}
-            className="h-10 px-4 bg-white border border-[#dcd7cb] hover:bg-gray-50 text-[#13243c] font-bold rounded-[8px] text-[12px] uppercase tracking-[0.03em] transition cursor-pointer"
-          >
-            + Message Inscription
-          </button>
-          <button
-            type="button"
-            onClick={() => startCreate('vehicule')}
-            className="h-10 px-4 bg-[#13243c] hover:bg-[#1a3050] text-white font-bold rounded-[8px] text-[12px] uppercase tracking-[0.03em] transition cursor-pointer shadow-xs"
-          >
-            + Message Véhicule
-          </button>
-        </div>
       </div>
 
-      {error && <Alert variant="error" className="mb-6">{error}</Alert>}
+      {error && !formOpen && <Alert variant="error" className="mb-6">{error}</Alert>}
       {success && <Alert variant="success" className="mb-6">{success}</Alert>}
 
-      {/* Form Drawer / Box */}
+      {/* Add / edit modal */}
       {formOpen && (
-        <form onSubmit={handleSubmit} className="border border-[#dcd7cb] bg-[#fbfaf7] rounded-[14px] p-5 sm:p-7 mb-8 shadow-md space-y-5 animate-in fade-in zoom-in-95 duration-150">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#13243c]/60 p-4 sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="message-form-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeForm();
+          }}
+        >
+        <form onSubmit={handleSubmit} className="w-full max-w-5xl max-h-[90vh] overflow-y-auto border border-[#dcd7cb] bg-[#fbfaf7] rounded-[14px] p-5 sm:p-7 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
           <div className="flex items-center justify-between border-b border-[#efece3] pb-4">
-            <h2 className="font-bold text-[16px] text-[#13243c] uppercase tracking-wide font-['Saira_Condensed',sans-serif]">
+            <h2 id="message-form-title" className="font-bold text-[16px] text-[#13243c] uppercase tracking-wide font-['Saira_Condensed',sans-serif]">
               {editingKey ? `Modifier le message "${editingKey}"` : 'Créer un nouveau message'}
             </h2>
             <button
               type="button"
-              onClick={() => { setFormOpen(false); resetForm(); }}
+              onClick={closeForm}
+              disabled={saving}
               className="text-xs font-bold text-[#4c5058] hover:text-[#13243c] transition cursor-pointer"
             >
               × Annuler
             </button>
           </div>
+
+          {error && <Alert variant="error">{error}</Alert>}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -265,8 +289,9 @@ export default function MessagesConfigurationPage() {
               </label>
               <select
                 value={formType}
-                onChange={(e) => setFormType(e.target.value as any)}
-                className="w-full h-10 border border-[#dcd7cb] rounded-[8px] px-3 font-semibold text-[13px] text-[#1a2230] bg-white focus:outline-none focus:border-[#13243c]"
+                disabled
+                aria-readonly="true"
+                className="w-full h-10 border border-[#dcd7cb] rounded-[8px] px-3 font-semibold text-[13px] text-[#1a2230] bg-gray-100 cursor-not-allowed"
               >
                 <option value="inscription">Inscriptions (Comptes & Utilisateurs)</option>
                 <option value="document">Documents Utilisateur (KBIS, CNI)</option>
@@ -326,7 +351,8 @@ export default function MessagesConfigurationPage() {
           <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
-              onClick={() => { setFormOpen(false); resetForm(); }}
+              onClick={closeForm}
+              disabled={saving}
               className="h-10 px-4 border border-[#dcd7cb] rounded-[8px] text-[#13243c] font-semibold text-[12px] hover:bg-gray-100 transition"
             >
               Annuler
@@ -341,6 +367,7 @@ export default function MessagesConfigurationPage() {
             </button>
           </div>
         </form>
+        </div>
       )}
 
       <div className="space-y-9">

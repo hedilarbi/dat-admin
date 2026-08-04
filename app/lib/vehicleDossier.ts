@@ -93,9 +93,7 @@ export interface VehicleDossier {
   registrationCardMissingReasons?: Array<'declaration_perte' | 'declaration_vol' | 'autre'>;
   identificationSheetAvailable?: boolean;
   policeBookNumber?: string;
-  dossierType?: string;
   description?: string;
-  vehicleCondition?: string;
   photos: DossierPhoto[];
   expertReport?: DossierDocument;
   additionalDocuments: DossierDocument[];

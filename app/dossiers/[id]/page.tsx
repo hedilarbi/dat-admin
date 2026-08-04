@@ -288,7 +288,6 @@ export default function AdminDossierVehiculeDetailPage() {
   const vehicleLabel = [dossier.brand, dossier.model].filter(Boolean).join(' ') || 'Sans nom';
   const sellerName = dossier.seller?.companyName || (dossier.seller?.firstName ? `${dossier.seller.firstName} ${dossier.seller.lastName || ''}` : 'Vendeur');
   const plate = dossier.registrationNumber || dossier.vin || '—';
-  const dossierType = dossier.dossierType || 'Sinistré';
   const reservePriceStr = dossier.reservePrice ? `${dossier.reservePrice.toLocaleString('fr-FR')} €` : 'Non renseigné';
   const sessionVis = dossier.session ? `#${dossier.session}` : 'Non affectée';
   const missingReasonLabels: Record<string, string> = {
@@ -340,7 +339,7 @@ export default function AdminDossierVehiculeDetailPage() {
     dossier.refusals?.length > 0;
 
   return (
-    <div className="flex-1 w-full bg-white text-black font-sans min-h-full p-6 sm:p-8 lg:p-10 flex flex-col xl:flex-row gap-8">
+    <div className="flex-1 w-full bg-white text-black font-sans min-h-full px-6 pt-6 pb-24 sm:px-8 sm:pt-8 sm:pb-28 lg:px-10 lg:pt-10 lg:pb-32 flex flex-col xl:flex-row gap-8">
       {/* Left Main Content */}
       <div className="flex-1 min-w-0">
         {/* Breadcrumb */}
@@ -355,7 +354,7 @@ export default function AdminDossierVehiculeDetailPage() {
         <div className="flex justify-between items-start gap-4 mb-6">
           <div className="min-w-0">
             <div className="font-semibold text-[11px] leading-none tracking-[0.2em] uppercase text-[#a3987f] mb-2.5 font-sans">
-              {sellerName} · {dossierType}
+              {sellerName}{dossier.procedure ? ` · ${dossier.procedure}` : ''}
             </div>
             <h1 className="m-0 font-bold text-[32px] leading-none uppercase text-[#13243c] font-['Saira_Condensed',sans-serif]">
               {vehicleLabel}
