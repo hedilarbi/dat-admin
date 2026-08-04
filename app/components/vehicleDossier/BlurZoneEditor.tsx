@@ -42,6 +42,8 @@ export default function BlurZoneEditor({ imageUrl, mimeType, zones, onZonesChang
   }, [isPdf, imageUrl]);
 
   const displaySrc = isPdf ? pdfPages?.[currentPageIndex]?.dataUrl : imageUrl;
+  const currentPdfPage = isPdf ? pdfPages?.[currentPageIndex] : null;
+  const displayRatio = currentPdfPage ? currentPdfPage.width / currentPdfPage.height : 4 / 3;
 
   const pageZoneEntries = zones
     .map((zone, index) => ({ zone, index }))
@@ -151,8 +153,8 @@ export default function BlurZoneEditor({ imageUrl, mimeType, zones, onZonesChang
           ) : (
             <div
               ref={containerRef}
-              className="relative select-none touch-none w-full bg-[#13243c] rounded-[9px] overflow-hidden cursor-crosshair max-h-[60vh]"
-              style={{ aspectRatio: '4 / 3' }}
+              className="relative select-none touch-none w-full bg-[#13243c] rounded-[9px] overflow-hidden cursor-crosshair"
+              style={{ aspectRatio: displayRatio }}
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
