@@ -69,6 +69,41 @@ const renderFormattedText = (text: string) =>
     )
   );
 
+const isDocumentBlurrable = (document: DossierDocument) => {
+  const mime = document.mimeType?.toLowerCase() || '';
+  const url = document.originalUrl.toLowerCase().split('?')[0];
+  return mime === 'application/pdf' || mime.startsWith('image/') || /\.(pdf|png|jpe?g|webp)$/.test(url);
+};
+
+function DocumentRow({ document, title, onEditBlur }: { document: DossierDocument; title: string; onEditBlur: () => void }) {
+  const zonesCount = document.blurZones?.length || 0;
+  const displayUrl = document.processedUrl || document.originalUrl;
+  const fileType = document.mimeType === 'application/pdf' || document.originalUrl.toLowerCase().includes('.pdf') ? 'PDF' : 'IMAGE';
+
+  return (
+    <div className="border border-[#eceadf] rounded-[12px] p-3.5 sm:p-4.5 flex flex-wrap items-center gap-3 sm:gap-4 bg-white">
+      <div className="w-10 h-10 rounded-[9px] bg-[#f1efe8] shrink-0 flex items-center justify-center font-semibold text-[10px] leading-none text-[#a3987f]">
+        {fileType}
+      </div>
+      <div className="flex-1 min-w-[180px]">
+        <div className="font-semibold text-[14px] leading-snug text-[#13243c] truncate">{title}</div>
+        <div className="font-normal text-[12px] leading-relaxed text-[#5a5e66] mt-0.5">
+          {document.processedUrl ? 'Version floutée disponible' : fileType}
+          {zonesCount > 0 ? ` · ${zonesCount} zone(s) de flou` : ''}
+        </div>
+      </div>
+      <a href={displayUrl} target="_blank" rel="noreferrer" className="font-semibold text-[12px] text-[#13243c] underline hover:opacity-80 shrink-0">
+        {document.processedUrl ? 'Voir le document flouté' : 'Consulter'}
+      </a>
+      {isDocumentBlurrable(document) && (
+        <button type="button" onClick={onEditBlur} className="h-9 px-3 rounded-[8px] border border-[#d9704f] text-[#d9704f] text-[11px] font-bold uppercase hover:bg-[#fff7f3] transition shrink-0">
+          {zonesCount > 0 ? 'Modifier le flou' : 'Ajouter un flou'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function AdminDossierVehiculeDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -341,7 +376,7 @@ export default function AdminDossierVehiculeDetailPage() {
   return (
     <div className="flex-1 w-full bg-white text-black font-sans min-h-full px-6 pt-6 pb-24 sm:px-8 sm:pt-8 sm:pb-28 lg:px-10 lg:pt-10 lg:pb-32 flex flex-col xl:flex-row gap-8">
       {/* Left Main Content */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 pb-24 sm:pb-28 lg:pb-32">
         {/* Breadcrumb */}
         <div className="font-semibold text-[12px] leading-none text-[#4c5058] mb-4">
           <Link href="/dossiers" className="hover:text-[#13243c] transition-colors">
@@ -478,12 +513,6 @@ export default function AdminDossierVehiculeDetailPage() {
               {dossier.description ? renderFormattedText(dossier.description) : 'Non renseignée'}
             </div>
           </div>
-          <div className="border border-[#eceadf] rounded-[10px] p-4 sm:col-span-2">
-            <div className="font-medium text-[11px] uppercase tracking-[0.04em] text-[#5a5e66] mb-2">Détails complémentaires sur l’état</div>
-            <div className="whitespace-pre-wrap text-[14px] leading-relaxed text-[#13243c]">
-              {dossier.conditionDetails ? renderFormattedText(dossier.conditionDetails) : 'Non renseignés'}
-            </div>
-          </div>
         </div>
 
         {/* Photos Section */}
@@ -521,46 +550,34 @@ export default function AdminDossierVehiculeDetailPage() {
         )}
 
         {/* Documents fournis */}
-        <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#4c5058] mb-3">
-          Documents fournis
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#4c5058]">
+            Documents fournis
+          </div>
+          {mediaDirty && (
+            <button type="button" onClick={handleSaveMedia} disabled={savingMedia} className="h-8 px-3 bg-[#13243c] hover:bg-slate-800 text-white text-[11px] font-bold uppercase rounded-[7px] transition disabled:opacity-50 flex items-center gap-1.5">
+              {savingMedia && <Spinner />}
+              Enregistrer les floutages
+            </button>
+          )}
         </div>
         <div className="flex flex-col gap-3 mb-7">
           {expertReport ? (
-            <div className="border border-[#eceadf] rounded-[12px] p-3.5 sm:p-4.5 flex items-center gap-4 bg-white">
-              <div className="w-10 h-10 rounded-[9px] bg-[#f1efe8] shrink-0 flex items-center justify-center font-semibold text-[10px] leading-none text-[#a3987f]">
-                PDF
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-[14px] leading-snug text-[#13243c] truncate">
-                  Rapport d'expertise sinistre
-                </div>
-                <div className="font-normal text-[12px] leading-relaxed text-[#5a5e66] mt-0.5">
-                  PDF
-                </div>
-              </div>
-              <div className="font-semibold text-[12px] leading-none px-3 py-1.5 rounded-full bg-[#e9f4ee] text-[#2f6f4f] shrink-0">
-                Ajouté
-              </div>
-              <a
-                href={expertReport.originalUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="font-semibold text-[12px] text-[#13243c] underline hover:opacity-80 shrink-0"
-              >
-                Consulter
-              </a>
-            </div>
+            <DocumentRow document={expertReport} title={expertReport.label || "Rapport d'expertise sinistre"} onEditBlur={() => setEditingTarget({ kind: 'expertReport' })} />
           ) : (
             <div className="border border-dashed border-[#dcd7cb] rounded-[12px] p-4 bg-[#fbfaf7] text-[13px] text-[#4c5058]">
               Aucun rapport d’expert fourni — document optionnel, fortement recommandé.
             </div>
           )}
+          {additionalDocuments.map((document, index) => (
+            <DocumentRow key={document._id || `${document.originalUrl}-${index}`} document={document} title={document.label || `Document complémentaire ${index + 1}`} onEditBlur={() => setEditingTarget({ kind: 'document', index })} />
+          ))}
         </div>
       </div>
 
       {/* Right Decision Panel */}
       {isPendingDecision && (
-        <div className="w-full xl:w-[360px] shrink-0">
+        <div className="w-full xl:w-[360px] shrink-0 pb-24 sm:pb-28 lg:pb-32">
           <div className="border border-[#eceadf] rounded-[14px] p-6 bg-white sticky top-6 shadow-xs">
           <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#4c5058] mb-4">
             Décision administrateur

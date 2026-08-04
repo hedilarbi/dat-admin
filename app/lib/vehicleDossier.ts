@@ -98,7 +98,6 @@ export interface VehicleDossier {
   expertReport?: DossierDocument;
   additionalDocuments: DossierDocument[];
   reservePrice?: number;
-  conditionDetails?: string;
   session?: string;
   status: DossierStatus;
   submittedAt?: string;
