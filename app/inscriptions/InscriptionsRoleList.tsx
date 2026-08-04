@@ -6,7 +6,6 @@ import { apiRequest } from '../api';
 import PageHeader from '../components/PageHeader';
 import Alert from '../components/Alert';
 import SkeletonRows from '../components/SkeletonRows';
-import StatCard from '../components/StatCard';
 import FilterPills from '../components/FilterPills';
 import { Badge, getInscriptionStatusBadge } from '../components/StatusBadge';
 
@@ -36,14 +35,6 @@ interface UserCounts {
 
 const EMPTY_COUNTS: UserCounts = { all: 0, acheteur: 0, vendeur: 0, enAttente: 0, correction: 0, valide: 0, refuse: 0 };
 
-const STATUS_FILTERS = [
-  { value: 'all', label: 'Toutes' },
-  { value: 'attente', label: 'En attente' },
-  { value: 'correction', label: 'Correction demandée' },
-  { value: 'valide', label: 'Validées' },
-  { value: 'refuse', label: 'Refusées' },
-];
-
 const PAGE_LIMIT = 20;
 
 interface InscriptionsRoleListProps {
@@ -67,6 +58,14 @@ export default function InscriptionsRoleList({ role, title }: InscriptionsRoleLi
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState('');
+
+  const statusFilters = [
+    { value: 'all', label: `Toutes ${total}` },
+    { value: 'attente', label: `En attente ${counts.enAttente}` },
+    { value: 'correction', label: `Correction demandée ${counts.correction}` },
+    { value: 'valide', label: `Validées ${counts.valide}` },
+    { value: 'refuse', label: `Refusées ${counts.refuse}` },
+  ];
 
   // Debounce the free-text search before it hits the API, resetting back to page 1
   useEffect(() => {
@@ -144,17 +143,9 @@ export default function InscriptionsRoleList({ role, title }: InscriptionsRoleLi
         }
       />
 
-      {/* Counter Stats Grid */}
-      <div className="grid grid-cols-1 min-[400px]:grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-7">
-        <StatCard label="En attente" value={counts.enAttente} bg="#faf1e4" labelColor="#b3893f" />
-        <StatCard label="Correction demandée" value={counts.correction} bg="#fdece4" labelColor="#d9704f" />
-        <StatCard label="Validées total" value={counts.valide} bg="#e9f4ee" labelColor="#2f6f4f" />
-        <StatCard label="Refusées / Suspendus" value={counts.refuse} bg="#fbeae7" labelColor="#9a3b2f" />
-      </div>
-
       <div className="mb-5">
         <FilterPills
-          options={STATUS_FILTERS}
+          options={statusFilters}
           value={userStatusFilter}
           onChange={handleStatusFilterChange}
           baseClassName="font-bold text-xs px-4 py-2 rounded-full transition"
@@ -167,7 +158,7 @@ export default function InscriptionsRoleList({ role, title }: InscriptionsRoleLi
 
       {/* Table Box */}
       <div className={`border border-[#eceadf] bg-white rounded-[12px] overflow-hidden shadow-sm transition-opacity ${fetching ? 'opacity-60' : ''}`}>
-        <div className="hidden md:grid grid-cols-6 gap-4 p-[14px_20px] bg-[#f8f7f2] font-semibold text-[11px] uppercase tracking-[0.05em] text-[#8a8270] border-b border-[#efece3]">
+        <div className="hidden md:grid grid-cols-6 gap-4 p-[14px_20px] bg-[#f8f7f2] font-semibold text-[11px] uppercase tracking-[0.05em] text-[#4c5058] border-b border-[#efece3]">
           <div className="col-span-2">Société</div>
           <div>Activité / Ville</div>
           <div>Contact</div>
@@ -180,11 +171,11 @@ export default function InscriptionsRoleList({ role, title }: InscriptionsRoleLi
             Aucun dossier d&apos;inscription ne correspond aux critères.
           </div>
         ) : (
-          users.map(row => (
+          users.map((row, index) => (
             <div
               key={row._id}
-              onClick={() => router.push(`/inscriptions/${row._id}`)}
-              className="grid grid-cols-1 md:grid-cols-6 gap-3 md:gap-4 p-[16px_20px] border-b border-[#efece3] items-center font-medium text-[13px] text-[#1a2230] hover:bg-[#fcfbf9] cursor-pointer transition"
+              onClick={() => router.push(`/inscription/${role}/${row._id}`)}
+              className={`grid grid-cols-1 md:grid-cols-6 gap-3 md:gap-4 p-[16px_20px] border-b border-[#e5e0d5] items-center font-medium text-[13px] text-[#1a2230] hover:bg-[#eee9de] cursor-pointer transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-[#f8f7f2]'}`}
             >
               <div className="col-span-2">
                 <div className="font-bold text-sm text-[#13243c]">
@@ -218,7 +209,7 @@ export default function InscriptionsRoleList({ role, title }: InscriptionsRoleLi
 
       {/* Pagination */}
       {total > 0 && (
-        <div className="flex items-center justify-between mt-5 text-xs text-[#8a8270]">
+        <div className="flex items-center justify-between mt-5 text-xs text-[#4c5058]">
           <div>
             {total} résultat{total > 1 ? 's' : ''} — page {page} / {totalPages}
           </div>

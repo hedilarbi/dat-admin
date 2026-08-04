@@ -103,14 +103,14 @@ export default function BlurZoneEditor({ imageUrl, mimeType, zones, onZonesChang
             <h3 className="text-[18px] font-bold font-heading uppercase text-[#13243c]">
               Éditeur de zones de flou
             </h3>
-            <p className="text-[12px] text-[#8a8270] mt-0.5">
+            <p className="text-[12px] text-[#4c5058] mt-0.5">
               Tracé libre : cliquez et glissez sur l'image pour ajouter des rectangles d'anonymisation.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-[#8a8270] hover:text-[#13243c] text-2xl leading-none px-2"
+            className="text-[#4c5058] hover:text-[#13243c] text-2xl leading-none px-2"
           >
             ×
           </button>
@@ -205,7 +205,7 @@ export default function BlurZoneEditor({ imageUrl, mimeType, zones, onZonesChang
 
         {/* Always-Visible Fixed Footer */}
         <div className="shrink-0 p-4 sm:p-5 border-t border-[#efece3] bg-white flex flex-col sm:flex-row items-center justify-between gap-3 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] z-10">
-          <div className="text-[12px] text-[#8a8270] font-medium hidden sm:block">
+          <div className="text-[12px] text-[#4c5058] font-medium hidden sm:block">
             {pageZoneEntries.length > 0
               ? `${pageZoneEntries.length} zone(s) de flou configurée(s)`
               : 'Tracé libre : cliquez et glissez sur l\'image pour créer une zone floue.'}

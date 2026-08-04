@@ -114,7 +114,7 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
 
   const isAuthPage = pathname === '/login' || pathname === '/';
   const isConfigSection = pathname.startsWith('/configuration');
-  const isInscriptionsSection = pathname.startsWith('/inscriptions');
+  const isInscriptionsSection = pathname.startsWith('/inscriptions') || pathname.startsWith('/inscription/');
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -262,10 +262,10 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
             </button>
             {(inscriptionsOpen || isInscriptionsSection) && (
               <div className="pl-3 flex flex-col gap-1">
-                <Link href="/inscriptions/vendeur" className={`flex items-center px-[14px] py-[10px] rounded-[9px] font-[500] text-[13px] transition ${pathname.startsWith('/inscriptions/vendeur') ? 'bg-[#1c3050] text-white font-semibold' : 'text-[#9fb0c9] hover:bg-[#1a2b44]'}`}>
+                <Link href="/inscriptions/vendeur" className={`flex items-center px-[14px] py-[10px] rounded-[9px] font-[500] text-[13px] transition ${pathname.startsWith('/inscriptions/vendeur') || pathname.startsWith('/inscription/vendeur/') ? 'bg-[#1c3050] text-white font-semibold' : 'text-[#9fb0c9] hover:bg-[#1a2b44]'}`}>
                   Vendeur
                 </Link>
-                <Link href="/inscriptions/acheteur" className={`flex items-center px-[14px] py-[10px] rounded-[9px] font-[500] text-[13px] transition ${pathname.startsWith('/inscriptions/acheteur') || (pathname.startsWith('/inscriptions/') && !pathname.startsWith('/inscriptions/vendeur')) ? 'bg-[#1c3050] text-white font-semibold' : 'text-[#9fb0c9] hover:bg-[#1a2b44]'}`}>
+                <Link href="/inscriptions/acheteur" className={`flex items-center px-[14px] py-[10px] rounded-[9px] font-[500] text-[13px] transition ${pathname.startsWith('/inscriptions/acheteur') || pathname.startsWith('/inscription/acheteur/') ? 'bg-[#1c3050] text-white font-semibold' : 'text-[#9fb0c9] hover:bg-[#1a2b44]'}`}>
                   Acheteur
                 </Link>
               </div>
@@ -342,7 +342,7 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
                   </div>
                   <div className="max-h-[300px] overflow-y-auto">
                     {notifications.length === 0 ? (
-                      <div className="p-5 text-center text-sm text-[#8a8270]">Aucune notification.</div>
+                      <div className="p-5 text-center text-sm text-[#4c5058]">Aucune notification.</div>
                     ) : (
                       notifications.slice(0, 5).map(notification => (
                         <button
@@ -356,7 +356,7 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
                             {!notification.readAt && <span className="w-2 h-2 rounded-full bg-[#d9704f] shrink-0 mt-1.5"></span>}
                           </div>
                           <div className="text-[12px] text-[#5a5e66] mt-1">{notification.message}</div>
-                          <div className="text-[11px] text-[#9a917d] mt-2">{new Date(notification.createdAt).toLocaleString('fr-FR')}</div>
+                          <div className="text-[11px] text-[#5a5e66] mt-2">{new Date(notification.createdAt).toLocaleString('fr-FR')}</div>
                         </button>
                       ))
                     )}
@@ -430,7 +430,7 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
 
             <div className="overflow-y-auto">
               {notifications.length === 0 ? (
-                <div className="p-10 text-center text-sm text-[#8a8270]">Aucune notification admin pour le moment.</div>
+                <div className="p-10 text-center text-sm text-[#4c5058]">Aucune notification admin pour le moment.</div>
               ) : (
                 notifications.map(notification => (
                   <button
@@ -444,14 +444,14 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
                         <div className="font-bold text-[#13243c]">{notification.title}</div>
                         <div className="text-sm text-[#5a5e66] mt-1">{notification.message}</div>
                         {notification.createdByUser && (
-                          <div className="text-[12px] text-[#8a8270] mt-2">
+                          <div className="text-[12px] text-[#4c5058] mt-2">
                             {notification.createdByUser.companyName} · {notification.createdByUser.email}
                           </div>
                         )}
                       </div>
                       <div className="text-right shrink-0">
                         {!notification.readAt && <div className="inline-flex px-2 py-1 rounded-full bg-[#fdece4] text-[#d9704f] text-[11px] font-bold mb-2">Nouveau</div>}
-                        <div className="text-[11px] text-[#9a917d]">{new Date(notification.createdAt).toLocaleString('fr-FR')}</div>
+                        <div className="text-[11px] text-[#5a5e66]">{new Date(notification.createdAt).toLocaleString('fr-FR')}</div>
                       </div>
                     </div>
                   </button>

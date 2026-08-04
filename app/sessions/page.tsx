@@ -42,6 +42,10 @@ const CALENDAR_WEEKDAY_HEADERS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim
 
 export default function AdminSessionsPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
+  const [listDateFrom, setListDateFrom] = useState('');
+  const [listDateTo, setListDateTo] = useState('');
+  const [listStatus, setListStatus] = useState<'all' | 'scheduled' | 'ongoing' | 'finished'>('all');
 
   const [sessions, setSessions] = useState<SessionData[]>([]);
   const [availableVehicles, setAvailableVehicles] = useState<VehicleDossier[]>([]);
@@ -61,6 +65,9 @@ export default function AdminSessionsPage() {
   const [panelSessionId, setPanelSessionId] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<SessionData | null>(null);
   const [searchAvailable, setSearchAvailable] = useState('');
+  const [initialVehicleIds, setInitialVehicleIds] = useState<string[]>([]);
+  const [sessionDirty, setSessionDirty] = useState(false);
+  const [savingSession, setSavingSession] = useState(false);
 
   const [configOpen, setConfigOpen] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
@@ -163,9 +170,12 @@ export default function AdminSessionsPage() {
   const openSessionDetail = async (session: SessionData) => {
     setPanelSessionId(session._id);
     setSelectedSession(session);
+    setInitialVehicleIds([]);
+    setSessionDirty(false);
     try {
       const detail = await apiRequest(`/sessions/${session._id}`);
       setSelectedSession(detail);
+      setInitialVehicleIds((detail.vehicles || []).map((vehicle: VehicleDossier) => vehicle._id));
     } catch (err) {
       console.error(err);
     }
@@ -174,37 +184,66 @@ export default function AdminSessionsPage() {
   const closeSessionDetail = () => {
     setPanelSessionId(null);
     setSelectedSession(null);
+    setInitialVehicleIds([]);
+    setSessionDirty(false);
+    setSearchAvailable('');
+    fetchAvailableVehicles();
   };
 
-  const handleAddVehicleToSession = async (vehicleId: string) => {
+  const handleAddVehicleToSession = (vehicleId: string) => {
     if (!selectedSession) return;
-    try {
-      await apiRequest(`/sessions/${selectedSession._id}/add-vehicle`, {
-        method: 'POST',
-        body: JSON.stringify({ vehicleId }),
-      });
-      const updated = await apiRequest(`/sessions/${selectedSession._id}`);
-      setSelectedSession(updated);
-      await fetchSessions();
-      await fetchAvailableVehicles();
-    } catch (err: any) {
-      setError(err.message || 'Erreur lors de l\'ajout du véhicule.');
-    }
+    const vehicle = availableVehicles.find((item) => item._id === vehicleId);
+    if (!vehicle) return;
+    setSelectedSession({
+      ...selectedSession,
+      vehicles: [...(selectedSession.vehicles || []), vehicle],
+    });
+    setAvailableVehicles((items) => items.filter((item) => item._id !== vehicleId));
+    setSessionDirty(true);
   };
 
-  const handleRemoveVehicleFromSession = async (vehicleId: string) => {
+  const handleRemoveVehicleFromSession = (vehicleId: string) => {
     if (!selectedSession) return;
+    const vehicle = selectedSession.vehicles?.find((item) => item._id === vehicleId);
+    if (!vehicle) return;
+    setSelectedSession({
+      ...selectedSession,
+      vehicles: (selectedSession.vehicles || []).filter((item) => item._id !== vehicleId),
+    });
+    setAvailableVehicles((items) => [...items, vehicle]);
+    setSessionDirty(true);
+  };
+
+  const handleSaveSession = async () => {
+    if (!selectedSession) return;
+    const currentVehicleIds = (selectedSession.vehicles || []).map((vehicle) => vehicle._id);
+    const addedIds = currentVehicleIds.filter((id) => !initialVehicleIds.includes(id));
+    const removedIds = initialVehicleIds.filter((id) => !currentVehicleIds.includes(id));
+
+    setSavingSession(true);
+    setError('');
+    setMessage('');
     try {
-      await apiRequest(`/sessions/${selectedSession._id}/remove-vehicle`, {
-        method: 'POST',
-        body: JSON.stringify({ vehicleId }),
-      });
-      const updated = await apiRequest(`/sessions/${selectedSession._id}`);
-      setSelectedSession(updated);
-      await fetchSessions();
-      await fetchAvailableVehicles();
+      await Promise.all([
+        ...addedIds.map((vehicleId) => apiRequest(`/sessions/${selectedSession._id}/add-vehicle`, {
+          method: 'POST',
+          body: JSON.stringify({ vehicleId }),
+        })),
+        ...removedIds.map((vehicleId) => apiRequest(`/sessions/${selectedSession._id}/remove-vehicle`, {
+          method: 'POST',
+          body: JSON.stringify({ vehicleId }),
+        })),
+      ]);
+      await Promise.all([fetchSessions(), fetchAvailableVehicles()]);
+      setMessage('Affectation des véhicules enregistrée avec succès.');
+      setPanelSessionId(null);
+      setSelectedSession(null);
+      setInitialVehicleIds([]);
+      setSessionDirty(false);
     } catch (err: any) {
-      setError(err.message || 'Erreur lors du retrait du véhicule.');
+      setError(err.message || 'Erreur lors de l\'enregistrement de la session.');
+    } finally {
+      setSavingSession(false);
     }
   };
 
@@ -261,10 +300,40 @@ export default function AdminSessionsPage() {
 
   const monthLabel = currentDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
 
+  const sessionState = (status: SessionData['status']) => {
+    if (['open', 'active'].includes(status)) return 'ongoing';
+    if (['closed', 'cloturee'].includes(status)) return 'finished';
+    if (status === 'annulee') return 'cancelled';
+    return 'scheduled';
+  };
+
+  const listStateMeta = (status: SessionData['status']) => {
+    const state = sessionState(status);
+    if (state === 'ongoing') return { label: 'En cours', color: '#2f6f4f', bg: '#e9f4ee' };
+    if (state === 'finished') return { label: 'Terminée', color: '#5a5e66', bg: '#f1efe8' };
+    if (state === 'cancelled') return { label: 'Annulée', color: '#9a3b2f', bg: '#fbeae7' };
+    return { label: 'Programmée', color: '#8a6a2f', bg: '#faf1e4' };
+  };
+
+  const filteredSessions = sessions
+    .filter((session) => {
+      const start = new Date(session.startDate || session.date || 0);
+      if (listDateFrom) {
+        const from = new Date(`${listDateFrom}T00:00:00`);
+        if (start < from) return false;
+      }
+      if (listDateTo) {
+        const to = new Date(`${listDateTo}T23:59:59.999`);
+        if (start > to) return false;
+      }
+      return listStatus === 'all' || sessionState(session.status) === listStatus;
+    })
+    .sort((a, b) => new Date(b.startDate || b.date || 0).getTime() - new Date(a.startDate || a.date || 0).getTime());
+
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="flex-1 w-full p-6 sm:p-8 lg:p-10 font-sans text-black bg-white min-h-full flex flex-col relative">
+    <div className="min-h-full shrink-0 w-full p-6 sm:p-8 lg:p-10 font-sans text-black bg-white flex flex-col relative">
       {/* Header Section */}
       <div className="flex flex-wrap gap-4 justify-between items-end mb-6.5">
         <div>
@@ -278,6 +347,15 @@ export default function AdminSessionsPage() {
 
         {/* Top Actions */}
         <div className="flex flex-wrap items-center gap-3.5">
+          <div className="flex rounded-[9px] border border-[#dcd7cb] bg-[#f8f7f2] p-1">
+            <button type="button" onClick={() => setViewMode('calendar')} className={`h-8 rounded-[7px] px-3 text-[12px] font-bold transition ${viewMode === 'calendar' ? 'bg-[#13243c] text-white shadow-sm' : 'text-[#4c5058] hover:bg-white'}`}>
+              Calendrier
+            </button>
+            <button type="button" onClick={() => setViewMode('list')} className={`h-8 rounded-[7px] px-3 text-[12px] font-bold transition ${viewMode === 'list' ? 'bg-[#13243c] text-white shadow-sm' : 'text-[#4c5058] hover:bg-white'}`}>
+              Liste
+            </button>
+          </div>
+          {viewMode === 'calendar' && <>
           <button
             type="button"
             onClick={handlePrevMonth}
@@ -295,6 +373,7 @@ export default function AdminSessionsPage() {
           >
             ›
           </button>
+          </>}
 
           <button
             type="button"
@@ -320,10 +399,11 @@ export default function AdminSessionsPage() {
       {error && <Alert variant="error" className="mb-5">{error}</Alert>}
       {message && <Alert variant="success" className="mb-5">{message}</Alert>}
 
+      {viewMode === 'calendar' ? <>
       {/* Weekdays Header */}
       <div className="grid grid-cols-7 gap-2 mb-2">
         {CALENDAR_WEEKDAY_HEADERS.map((wd) => (
-          <div key={wd} className="text-center font-semibold text-[11px] leading-none uppercase tracking-[0.05em] text-[#9a917d] pb-1.5">
+          <div key={wd} className="text-center font-semibold text-[11px] leading-none uppercase tracking-[0.05em] text-[#5a5e66] pb-1.5">
             {wd}
           </div>
         ))}
@@ -388,7 +468,7 @@ export default function AdminSessionsPage() {
       </div>
 
       {/* Legend Footer */}
-      <div className="flex items-center gap-[22px] border-t border-[#efece3] pt-4">
+      <div className="flex flex-wrap items-center gap-[22px] border-t border-[#efece3] pt-4 pb-8 sm:pb-10">
         <div className="flex items-center gap-2">
           <div className="w-[11px] h-[11px] rounded-[3px] bg-[#2f6f4f]" />
           <span className="font-medium text-[12px] leading-none text-[#5a5e66]">Session ouverte</span>
@@ -402,6 +482,53 @@ export default function AdminSessionsPage() {
           <span className="font-medium text-[12px] leading-none text-[#5a5e66]">Session clôturée</span>
         </div>
       </div>
+      </> : (
+        <div className="flex flex-col gap-5">
+          <div className="rounded-[12px] border border-[#eceadf] bg-[#fbfaf7] p-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1.2fr_auto] lg:items-end">
+              <label>
+                <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.05em] text-[#4c5058]">Date de début</span>
+                <input type="date" value={listDateFrom} onChange={(event) => setListDateFrom(event.target.value)} className="h-11 w-full rounded-[8px] border border-[#dcd7cb] bg-white px-3 text-sm text-[#13243c] focus:outline-none focus:ring-1 focus:ring-[#13243c]" />
+              </label>
+              <label>
+                <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.05em] text-[#4c5058]">Date de fin</span>
+                <input type="date" value={listDateTo} onChange={(event) => setListDateTo(event.target.value)} className="h-11 w-full rounded-[8px] border border-[#dcd7cb] bg-white px-3 text-sm text-[#13243c] focus:outline-none focus:ring-1 focus:ring-[#13243c]" />
+              </label>
+              <label>
+                <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.05em] text-[#4c5058]">État</span>
+                <select value={listStatus} onChange={(event) => setListStatus(event.target.value as typeof listStatus)} className="h-11 w-full rounded-[8px] border border-[#dcd7cb] bg-white px-3 text-sm text-[#13243c] focus:outline-none focus:ring-1 focus:ring-[#13243c]">
+                  <option value="all">Tous les états</option>
+                  <option value="scheduled">Programmée</option>
+                  <option value="ongoing">En cours</option>
+                  <option value="finished">Terminée</option>
+                </select>
+              </label>
+              <button type="button" onClick={() => { setListDateFrom(''); setListDateTo(''); setListStatus('all'); }} className="h-11 rounded-[8px] border border-[#dcd7cb] bg-white px-4 text-xs font-bold uppercase text-[#13243c] hover:bg-gray-50">Réinitialiser</button>
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-[12px] border border-[#eceadf] bg-white shadow-sm">
+            <div className="hidden grid-cols-[1.3fr_1.4fr_1.4fr_.8fr_.8fr] gap-4 border-b border-[#efece3] bg-[#f8f7f2] px-5 py-3 text-[11px] font-bold uppercase tracking-[0.05em] text-[#4c5058] md:grid">
+              <span>Session</span><span>Début</span><span>Fin</span><span>État</span><span className="text-right">Véhicules</span>
+            </div>
+            {filteredSessions.length === 0 ? (
+              <div className="px-5 py-12 text-center text-sm font-medium text-[#5a5e66]">Aucune session ne correspond aux filtres sélectionnés.</div>
+            ) : filteredSessions.map((session) => {
+              const meta = listStateMeta(session.status);
+              return (
+                <button key={session._id} type="button" onClick={() => openSessionDetail(session)} className="grid w-full grid-cols-1 gap-2 border-b border-[#efece3] px-5 py-4 text-left transition last:border-b-0 hover:bg-[#fcfbf9] md:grid-cols-[1.3fr_1.4fr_1.4fr_.8fr_.8fr] md:items-center md:gap-4">
+                  <span className="font-bold text-[#13243c]">{session.name}</span>
+                  <span className="text-sm text-[#4c5058]">{new Date(session.startDate || session.date || 0).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                  <span className="text-sm text-[#4c5058]">{new Date(session.endDate).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                  <span className="w-fit rounded-full px-2.5 py-1 text-[11px] font-bold" style={{ color: meta.color, backgroundColor: meta.bg }}>{meta.label}</span>
+                  <span className="font-bold text-[#13243c] md:text-right">{session.vehicleCount || 0} véhicule{(session.vehicleCount || 0) > 1 ? 's' : ''} →</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="text-xs font-semibold text-[#5a5e66]">{filteredSessions.length} session{filteredSessions.length > 1 ? 's' : ''}</div>
+        </div>
+      )}
 
       {/* MODAL 1: Session Detail Side Drawer */}
       {panelSessionId && selectedSession && (
@@ -410,7 +537,7 @@ export default function AdminSessionsPage() {
           onClick={closeSessionDetail}
         >
           <div
-            className="w-full max-w-[1040px] max-h-[84vh] bg-white rounded-[16px] shadow-[0_26px_60px_rgba(0,0,0,0.28)] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            className="w-full max-w-[1120px] h-[92vh] max-h-[92vh] bg-white rounded-[16px] shadow-[0_26px_60px_rgba(0,0,0,0.28)] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -441,7 +568,7 @@ export default function AdminSessionsPage() {
               {/* Left Column: Available Validated Vehicles */}
               <div className="flex-1 min-w-0 flex flex-col border-b md:border-b-0 md:border-r border-[#efece3]">
                 <div className="p-4 sm:p-[18px_26px_12px]">
-                  <div className="font-bold text-[11px] leading-none tracking-[0.06em] uppercase text-[#8a8270] mb-2.5">
+                  <div className="font-bold text-[11px] leading-none tracking-[0.06em] uppercase text-[#4c5058] mb-2.5">
                     Véhicules validés disponibles ({availableVehicles.length})
                   </div>
                   <input
@@ -463,7 +590,7 @@ export default function AdminSessionsPage() {
                       return label.includes(q) || plate.includes(q);
                     })
                     .length === 0 ? (
-                    <div className="py-8 text-center font-medium text-[13px] leading-relaxed text-[#9a917d]">
+                    <div className="py-8 text-center font-medium text-[13px] leading-relaxed text-[#5a5e66]">
                       Aucun véhicule validé disponible sans session.
                     </div>
                   ) : (
@@ -484,7 +611,7 @@ export default function AdminSessionsPage() {
                             <div className="font-semibold text-[13px] leading-snug text-[#13243c] truncate">
                               {[v.brand, v.model].filter(Boolean).join(' ') || 'Sans nom'}
                             </div>
-                            <div className="font-normal text-[11px] leading-snug text-[#9a917d] mt-0.5 truncate">
+                            <div className="font-normal text-[11px] leading-snug text-[#5a5e66] mt-0.5 truncate">
                               {v.registrationNumber || v.vin || '—'} · {v.seller?.companyName || 'Vendeur'}
                             </div>
                           </div>
@@ -505,14 +632,14 @@ export default function AdminSessionsPage() {
               {/* Right Column: Assigned Vehicles */}
               <div className="flex-1 min-w-0 flex flex-col">
                 <div className="p-4 sm:p-[18px_26px_12px]">
-                  <div className="font-bold text-[11px] leading-none tracking-[0.06em] uppercase text-[#8a8270]">
+                  <div className="font-bold text-[11px] leading-none tracking-[0.06em] uppercase text-[#4c5058]">
                     Véhicules affectés à cette session ({selectedSession.vehicles?.length || 0})
                   </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 sm:p-[4px_26px_20px] divide-y divide-[#f1efe8]">
                   {!selectedSession.vehicles || selectedSession.vehicles.length === 0 ? (
-                    <div className="py-8 text-center font-medium text-[13px] leading-relaxed text-[#9a917d]">
+                    <div className="py-8 text-center font-medium text-[13px] leading-relaxed text-[#5a5e66]">
                       Aucun véhicule dans cette session.
                     </div>
                   ) : (
@@ -525,7 +652,7 @@ export default function AdminSessionsPage() {
                           <div className="font-semibold text-[13px] leading-snug text-[#13243c] truncate">
                             {[v.brand, v.model].filter(Boolean).join(' ') || 'Sans nom'}
                           </div>
-                          <div className="font-normal text-[11px] leading-snug text-[#9a917d] mt-0.5 truncate">
+                          <div className="font-normal text-[11px] leading-snug text-[#5a5e66] mt-0.5 truncate">
                             {v.registrationNumber || v.vin || '—'} · {v.seller?.companyName || 'Vendeur'}
                           </div>
                         </div>
@@ -544,6 +671,31 @@ export default function AdminSessionsPage() {
                     ))
                   )}
                 </div>
+              </div>
+            </div>
+
+            <div className="shrink-0 border-t border-[#efece3] bg-[#fbfaf7] px-6 py-4 sm:px-8 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-[12px] font-medium text-[#4c5058]">
+                {sessionDirty ? 'Des modifications sont en attente d’enregistrement.' : 'Aucune modification en attente.'}
+              </p>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={closeSessionDetail}
+                  disabled={savingSession}
+                  className="h-11 rounded-[9px] border border-[#dcd7cb] bg-white px-5 text-[12px] font-bold uppercase text-[#13243c] hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveSession}
+                  disabled={!sessionDirty || savingSession}
+                  className="h-11 min-w-[150px] rounded-[9px] bg-[#13243c] px-5 text-[12px] font-bold uppercase text-white hover:bg-[#1a3050] disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {savingSession && <Spinner />}
+                  Enregistrer
+                </button>
               </div>
             </div>
           </div>
@@ -634,7 +786,7 @@ export default function AdminSessionsPage() {
                     onChange={(e) => setConfig({ ...config, durationHours: Number(e.target.value) })}
                     className="w-full h-[44px] border border-[#dcd7cb] rounded-[9px] px-3 pr-14 font-mono font-semibold text-[14px] text-[#1a2230] bg-white focus:outline-none focus:border-[#13243c]"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 font-semibold text-[12px] text-[#8a8270]">
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 font-semibold text-[12px] text-[#4c5058]">
                     heures
                   </span>
                 </div>

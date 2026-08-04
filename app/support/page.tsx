@@ -276,7 +276,7 @@ export default function AdminSupportPage() {
                     <span className="font-bold text-[13px] text-[#13243c] truncate max-w-[210px]">{t.user?.companyName || 'Société'}</span>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 uppercase">{t.user?.role}</span>
                   </div>
-                  <div className="text-[11px] font-semibold text-[#8a8270] uppercase tracking-[0.03em] mb-1">{getCategoryLabel(t.category)}</div>
+                  <div className="text-[11px] font-semibold text-[#4c5058] uppercase tracking-[0.03em] mb-1">{getCategoryLabel(t.category)}</div>
                   <div className="text-[13px] font-semibold text-[#13243c] leading-[1.3] mb-2 truncate">{t.title}</div>
                   <div className="flex justify-between items-center">
                     <Badge style={meta} className="px-2.5 py-0.5" />
@@ -303,7 +303,7 @@ export default function AdminSupportPage() {
                 >
                   ← Retour à la liste
                 </button>
-                <div className="text-xs font-semibold text-[#8a8270] uppercase">
+                <div className="text-xs font-semibold text-[#4c5058] uppercase">
                   {getCategoryLabel(selectedTicket.category)} · Priorité {selectedTicket.priority}
                 </div>
                 <h2 className="text-[20px] font-bold font-heading uppercase text-[#13243c] leading-tight mt-0.5">
@@ -421,7 +421,7 @@ export default function AdminSupportPage() {
             </div>
           </>
         ) : (
-          <div className="h-full flex items-center justify-center text-[#9a917d] select-none text-sm font-medium p-8 text-center">
+          <div className="h-full flex items-center justify-center text-[#5a5e66] select-none text-sm font-medium p-8 text-center">
             ← Sélectionnez un ticket dans la liste de gauche pour en lire le fil de conversation et y répondre.
           </div>
         )}

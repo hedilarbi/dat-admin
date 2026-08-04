@@ -60,6 +60,15 @@ const FALLBACK_VEHICLE_REASONS: RefusalReason[] = [
   },
 ];
 
+const renderFormattedText = (text: string) =>
+  text.split(/(\*\*.*?\*\*)/g).map((part, index) =>
+    part.startsWith('**') && part.endsWith('**') ? (
+      <strong key={index}>{part.slice(2, -2)}</strong>
+    ) : (
+      <React.Fragment key={index}>{part}</React.Fragment>
+    )
+  );
+
 export default function AdminDossierVehiculeDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -186,23 +195,6 @@ export default function AdminDossierVehiculeDetailPage() {
     }
   };
 
-  // --- Médias : couverture / réordonnancement / flou ---
-  const setCoverPhoto = (index: number) => {
-    setPhotos((prev) => prev.map((p, i) => ({ ...p, isCover: i === index })));
-    setMediaDirty(true);
-  };
-
-  const movePhoto = (index: number, direction: -1 | 1) => {
-    setPhotos((prev) => {
-      const swapWith = index + direction;
-      if (swapWith < 0 || swapWith >= prev.length) return prev;
-      const next = [...prev];
-      [next[index], next[swapWith]] = [next[swapWith], next[index]];
-      return next;
-    });
-    setMediaDirty(true);
-  };
-
   const editingItem: { originalUrl: string; blurZones: BlurZone[]; mimeType?: string } | null = (() => {
     if (!editingTarget) return null;
     if (editingTarget.kind === 'photo') return photos[editingTarget.index] || null;
@@ -297,9 +289,33 @@ export default function AdminDossierVehiculeDetailPage() {
   const sellerName = dossier.seller?.companyName || (dossier.seller?.firstName ? `${dossier.seller.firstName} ${dossier.seller.lastName || ''}` : 'Vendeur');
   const plate = dossier.registrationNumber || dossier.vin || '—';
   const dossierType = dossier.dossierType || 'Sinistré';
-  const condition = dossier.vehicleCondition || 'Roulant';
   const reservePriceStr = dossier.reservePrice ? `${dossier.reservePrice.toLocaleString('fr-FR')} €` : 'Non renseigné';
-  const sessionVis = dossier.session ? `#${dossier.session}` : '#131 · 27 juillet';
+  const sessionVis = dossier.session ? `#${dossier.session}` : 'Non affectée';
+  const missingReasonLabels: Record<string, string> = {
+    declaration_perte: 'Déclaration de perte',
+    declaration_vol: 'Déclaration de vol',
+    autre: 'Autre',
+  };
+  const vehicleInformation = [
+    ['Immatriculation', dossier.registrationNumber],
+    ['Pays', dossier.registrationCountry],
+    ['Marque', dossier.brand],
+    ['Modèle', dossier.model],
+    ['Date de première circulation', dossier.firstRegistrationDate],
+    ['CO₂', dossier.co2 ? `${dossier.co2} g/km` : undefined],
+    ['Énergie', dossier.energyLabel],
+    ['Genre', dossier.vehicleGenre],
+    ['Puissance fiscale', dossier.fiscalPower],
+    ['Carrosserie', dossier.bodyType],
+    ['N° de série (VIN)', dossier.vin],
+    ['Boîte de vitesse', dossier.gearbox],
+    ['Nombre de passagers', dossier.passengerCount],
+    ['Nombre de portes', dossier.doorCount],
+    ['Couleur', dossier.color],
+    ['Kilométrage', dossier.mileage != null ? `${dossier.mileage.toLocaleString('fr-FR')} km` : undefined],
+    ['VRADE', dossier.vrade],
+    ['Procédure', dossier.procedure],
+  ];
 
   const getStatusMeta = (status: string) => {
     switch (status) {
@@ -318,13 +334,17 @@ export default function AdminDossierVehiculeDetailPage() {
   };
 
   const statusMeta = getStatusMeta(dossier.status);
+  const isPendingDecision = dossier.status === 'soumis' || dossier.status === 'en_attente_validation';
+  const showDecisionHistory =
+    (dossier.status === 'refuse' || dossier.status === 'correction_demandee') &&
+    dossier.refusals?.length > 0;
 
   return (
     <div className="flex-1 w-full bg-white text-black font-sans min-h-full p-6 sm:p-8 lg:p-10 flex flex-col xl:flex-row gap-8">
       {/* Left Main Content */}
       <div className="flex-1 min-w-0">
         {/* Breadcrumb */}
-        <div className="font-semibold text-[12px] leading-none text-[#8a8270] mb-4">
+        <div className="font-semibold text-[12px] leading-none text-[#4c5058] mb-4">
           <Link href="/dossiers" className="hover:text-[#13243c] transition-colors">
             Dossiers véhicules
           </Link>{' '}
@@ -352,69 +372,124 @@ export default function AdminDossierVehiculeDetailPage() {
         {error && <Alert variant="error" className="mb-4">{error}</Alert>}
         {message && <Alert variant="success" className="mb-4">{message}</Alert>}
 
+        {showDecisionHistory && (
+          <div className="mb-7">
+            <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#4c5058] mb-3">
+              Historique des motifs
+            </div>
+            <div className="flex flex-col gap-3">
+              {[...dossier.refusals].reverse().map((refusal, index) => {
+                const reasons = refusal.motifsLabels?.length ? refusal.motifsLabels : refusal.motifs;
+
+                return (
+                  <div
+                    key={`${refusal.date}-${index}`}
+                    className="rounded-[12px] border border-[#e7c9c1] bg-[#fff8f6] p-4"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[12px] font-semibold text-[#6b3129]">
+                      <span>
+                        Décision du {new Date(refusal.date).toLocaleDateString('fr-FR')}
+                      </span>
+                      {refusal.resubmittedAt && (
+                        <span className="text-[#4c5058]">
+                          Dossier soumis à nouveau le{' '}
+                          {new Date(refusal.resubmittedAt).toLocaleDateString('fr-FR')}
+                        </span>
+                      )}
+                    </div>
+
+                    {reasons?.length > 0 && (
+                      <ul className="mt-3 list-disc space-y-1 pl-5 text-[13px] font-medium leading-relaxed text-[#3f302d]">
+                        {reasons.map((reason, reasonIndex) => (
+                          <li key={`${reason}-${reasonIndex}`}>{reason}</li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {refusal.comment && (
+                      <p className="mt-3 whitespace-pre-wrap rounded-[8px] bg-white px-3 py-2 text-[13px] leading-relaxed text-[#3f302d]">
+                        {refusal.comment}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Informations Véhicule Grid */}
-        <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#8a8270] mb-3">
+        <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#4c5058] mb-3">
           Informations véhicule
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mb-7">
-          <div className="border border-[#eceadf] rounded-[10px] p-3.5 sm:p-4">
-            <div className="font-medium text-[11px] leading-none text-[#9a917d] uppercase tracking-[0.04em] mb-1.5">
-              Modèle / Année
+          {vehicleInformation.map(([label, value]) => (
+            <div key={label} className="border border-[#eceadf] rounded-[10px] p-3.5 sm:p-4">
+              <div className="font-medium text-[11px] leading-none text-[#5a5e66] uppercase tracking-[0.04em] mb-1.5">
+                {label}
+              </div>
+              <div className="font-semibold text-[14px] leading-tight text-[#13243c] break-words">
+                {value || 'Non renseigné'}
+              </div>
             </div>
-            <div className="font-semibold text-[14px] leading-tight text-[#13243c]">
-              {dossier.model || vehicleLabel} · {dossier.year || '2016'}
+          ))}
+        </div>
+
+        <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#4c5058] mb-3">
+          Informations complémentaires
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-7">
+          <div className="border border-[#eceadf] rounded-[10px] p-4 sm:col-span-2">
+            <div className="font-medium text-[11px] uppercase tracking-[0.04em] text-[#5a5e66] mb-1.5">Adresse de la voiture</div>
+            <div className="font-semibold text-[14px] text-[#13243c]">{dossier.vehicleAddress || 'Non renseignée'}</div>
+          </div>
+          <div className="border border-[#eceadf] rounded-[10px] p-4">
+            <div className="font-medium text-[11px] uppercase tracking-[0.04em] text-[#5a5e66] mb-1.5">Carte grise disponible</div>
+            <div className="font-semibold text-[14px] text-[#13243c]">
+              {dossier.registrationCardAvailable === true ? 'Oui' : dossier.registrationCardAvailable === false ? 'Non' : 'Non renseigné'}
             </div>
           </div>
-
-          <div className="border border-[#eceadf] rounded-[10px] p-3.5 sm:p-4">
-            <div className="font-medium text-[11px] leading-none text-[#9a917d] uppercase tracking-[0.04em] mb-1.5">
-              Immatriculation
-            </div>
-            <div className="font-semibold text-[14px] leading-tight text-[#13243c] font-mono">
-              {plate}
+          <div className="border border-[#eceadf] rounded-[10px] p-4">
+            <div className="font-medium text-[11px] uppercase tracking-[0.04em] text-[#5a5e66] mb-1.5">Prix de réserve / Session</div>
+            <div className="font-semibold text-[14px] text-[#13243c]">{reservePriceStr} · {sessionVis}</div>
+          </div>
+          {dossier.registrationCardAvailable === false && (
+            <>
+              <div className="border border-[#eceadf] rounded-[10px] p-4">
+                <div className="font-medium text-[11px] uppercase tracking-[0.04em] text-[#5a5e66] mb-1.5">Motif d’absence de carte grise</div>
+                <div className="font-semibold text-[14px] text-[#13243c]">
+                  {dossier.registrationCardMissingReasons?.length
+                    ? dossier.registrationCardMissingReasons.map((reason) => missingReasonLabels[reason] || reason).join(', ')
+                    : 'Non renseigné'}
+                </div>
+              </div>
+              <div className="border border-[#eceadf] rounded-[10px] p-4">
+                <div className="font-medium text-[11px] uppercase tracking-[0.04em] text-[#5a5e66] mb-1.5">Fiche d’identification disponible</div>
+                <div className="font-semibold text-[14px] text-[#13243c]">{dossier.identificationSheetAvailable ? 'Oui' : 'Non'}</div>
+              </div>
+              <div className="border border-[#eceadf] rounded-[10px] p-4 sm:col-span-2">
+                <div className="font-medium text-[11px] uppercase tracking-[0.04em] text-[#5a5e66] mb-1.5">Numéro du livre de police</div>
+                <div className="font-semibold text-[14px] text-[#13243c]">{dossier.policeBookNumber || 'Non renseigné'}</div>
+              </div>
+            </>
+          )}
+          <div className="border border-[#eceadf] rounded-[10px] p-4 sm:col-span-2">
+            <div className="font-medium text-[11px] uppercase tracking-[0.04em] text-[#5a5e66] mb-2">Description du choc</div>
+            <div className="whitespace-pre-wrap text-[14px] leading-relaxed text-[#13243c]">
+              {dossier.description ? renderFormattedText(dossier.description) : 'Non renseignée'}
             </div>
           </div>
-
-          <div className="border border-[#eceadf] rounded-[10px] p-3.5 sm:p-4">
-            <div className="font-medium text-[11px] leading-none text-[#9a917d] uppercase tracking-[0.04em] mb-1.5">
-              Kilométrage
-            </div>
-            <div className="font-semibold text-[14px] leading-tight text-[#13243c]">
-              {dossier.mileage ? `${dossier.mileage.toLocaleString('fr-FR')} km` : '142 000 km'}
-            </div>
-          </div>
-
-          <div className="border border-[#eceadf] rounded-[10px] p-3.5 sm:p-4">
-            <div className="font-medium text-[11px] leading-none text-[#9a917d] uppercase tracking-[0.04em] mb-1.5">
-              État général
-            </div>
-            <div className="font-semibold text-[14px] leading-tight text-[#13243c]">
-              {condition}
-            </div>
-          </div>
-
-          <div className="border border-[#eceadf] rounded-[10px] p-3.5 sm:p-4">
-            <div className="font-medium text-[11px] leading-none text-[#9a917d] uppercase tracking-[0.04em] mb-1.5">
-              Prix de réserve
-            </div>
-            <div className="font-semibold text-[14px] leading-tight text-[#13243c] font-mono">
-              {reservePriceStr}
-            </div>
-          </div>
-
-          <div className="border border-[#eceadf] rounded-[10px] p-3.5 sm:p-4">
-            <div className="font-medium text-[11px] leading-none text-[#9a917d] uppercase tracking-[0.04em] mb-1.5">
-              Session visée
-            </div>
-            <div className="font-semibold text-[14px] leading-tight text-[#13243c]">
-              {sessionVis}
+          <div className="border border-[#eceadf] rounded-[10px] p-4 sm:col-span-2">
+            <div className="font-medium text-[11px] uppercase tracking-[0.04em] text-[#5a5e66] mb-2">Détails complémentaires sur l’état</div>
+            <div className="whitespace-pre-wrap text-[14px] leading-relaxed text-[#13243c]">
+              {dossier.conditionDetails ? renderFormattedText(dossier.conditionDetails) : 'Non renseignés'}
             </div>
           </div>
         </div>
 
         {/* Photos Section */}
         <div className="flex items-center justify-between mb-3">
-          <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#8a8270]">
+          <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#4c5058]">
             Photos
           </div>
           {mediaDirty && (
@@ -440,11 +515,6 @@ export default function AdminDossierVehiculeDetailPage() {
               <PhotoTile
                 key={photo._id || index}
                 photo={photo}
-                index={index}
-                total={photos.length}
-                onSetCover={() => setCoverPhoto(index)}
-                onMoveUp={() => movePhoto(index, -1)}
-                onMoveDown={() => movePhoto(index, 1)}
                 onEditBlur={() => setEditingTarget({ kind: 'photo', index })}
               />
             ))}
@@ -452,7 +522,7 @@ export default function AdminDossierVehiculeDetailPage() {
         )}
 
         {/* Documents fournis */}
-        <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#8a8270] mb-3">
+        <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#4c5058] mb-3">
           Documents fournis
         </div>
         <div className="flex flex-col gap-3 mb-7">
@@ -465,7 +535,7 @@ export default function AdminDossierVehiculeDetailPage() {
                 <div className="font-semibold text-[14px] leading-snug text-[#13243c] truncate">
                   Rapport d'expertise sinistre
                 </div>
-                <div className="font-normal text-[12px] leading-relaxed text-[#9a917d] mt-0.5">
+                <div className="font-normal text-[12px] leading-relaxed text-[#5a5e66] mt-0.5">
                   PDF
                 </div>
               </div>
@@ -482,33 +552,18 @@ export default function AdminDossierVehiculeDetailPage() {
               </a>
             </div>
           ) : (
-            <div className="border border-[#eceadf] rounded-[12px] p-3.5 sm:p-4.5 flex items-center gap-4 bg-white">
-              <div className="w-10 h-10 rounded-[9px] bg-[#f1efe8] shrink-0 flex items-center justify-center font-semibold text-[10px] leading-none text-[#a3987f]">
-                PDF
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-[14px] leading-snug text-[#13243c] truncate">
-                  Carte grise
-                </div>
-                <div className="font-normal text-[12px] leading-relaxed text-[#9a917d] mt-0.5">
-                  Recto et verso
-                </div>
-              </div>
-              <div className="font-semibold text-[12px] leading-none px-3 py-1.5 rounded-full bg-[#e9f4ee] text-[#2f6f4f] shrink-0">
-                Ajouté
-              </div>
-              <span className="font-semibold text-[12px] text-[#13243c] underline cursor-pointer shrink-0">
-                Consulter
-              </span>
+            <div className="border border-dashed border-[#dcd7cb] rounded-[12px] p-4 bg-[#fbfaf7] text-[13px] text-[#4c5058]">
+              Aucun rapport d’expert fourni — document optionnel, fortement recommandé.
             </div>
           )}
         </div>
       </div>
 
       {/* Right Decision Panel */}
-      <div className="w-full xl:w-[360px] shrink-0">
-        <div className="border border-[#eceadf] rounded-[14px] p-6 bg-white sticky top-6 shadow-xs">
-          <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#8a8270] mb-4">
+      {isPendingDecision && (
+        <div className="w-full xl:w-[360px] shrink-0">
+          <div className="border border-[#eceadf] rounded-[14px] p-6 bg-white sticky top-6 shadow-xs">
+          <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#4c5058] mb-4">
             Décision administrateur
           </div>
 
@@ -567,7 +622,7 @@ export default function AdminDossierVehiculeDetailPage() {
                     <span className="font-medium text-[13px] leading-none text-[#1a2230]">
                       {selectedCauses.length} motif(s) sélectionné(s)
                     </span>
-                    <span className="font-semibold text-[12px] leading-none text-[#9a917d]">
+                    <span className="font-semibold text-[12px] leading-none text-[#5a5e66]">
                       {causesOpen ? '▲' : '▼'}
                     </span>
                   </div>
@@ -593,7 +648,7 @@ export default function AdminDossierVehiculeDetailPage() {
                               <div className="font-bold text-[13px] leading-snug text-[#13243c]">
                                 {item.label?.fr || item.key}
                               </div>
-                              <div className="font-normal text-[11px] leading-snug text-[#8a8270] mt-0.5">
+                              <div className="font-normal text-[11px] leading-snug text-[#4c5058] mt-0.5">
                                 {item.message?.fr}
                               </div>
                             </div>
@@ -635,11 +690,12 @@ export default function AdminDossierVehiculeDetailPage() {
               : 'Envoyer la demande de correction'}
           </button>
 
-          <div className="font-normal text-[11px] leading-relaxed text-[#9a917d] text-center">
+          <div className="font-normal text-[11px] leading-relaxed text-[#5a5e66] text-center">
             Le vendeur reçoit une notification et un email avec les motifs sélectionnés.
           </div>
+          </div>
         </div>
-      </div>
+      )}
 
       <ConfirmModal
         open={confirmApprove}

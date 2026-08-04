@@ -15,7 +15,7 @@ export default function DocumentReceivedCard({ fileType, title, description, url
       </div>
       <div className="flex-1">
         <div className="font-semibold text-sm text-[#13243c]">{title}</div>
-        <div className="text-xs text-[#9a917d] mt-0.5">{description}</div>
+        <div className="text-xs text-[#5a5e66] mt-0.5">{description}</div>
       </div>
       <span className="font-semibold text-xs px-3 py-1 rounded-full bg-[#e9f4ee] text-[#2f6f4f]">Reçu</span>
       <a href={url} target="_blank" rel="noreferrer" className="font-semibold text-xs text-[#13243c] underline hover:opacity-80">

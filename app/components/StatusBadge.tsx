@@ -10,7 +10,8 @@ export interface BadgeStyle {
 export function getInscriptionStatusBadge(status: string): BadgeStyle {
   switch (status) {
     case 'soumis':
-      return { label: 'En attente', color: '#ffffff', bg: '#f59e0b' };
+    case 'en_attente_validation':
+      return { label: 'En attente', color: '#ffffff', bg: '#2563eb' };
     case 'valide':
       return { label: 'Validé', color: '#ffffff', bg: '#16a34a' };
     case 'correction_demandee':
@@ -49,13 +50,13 @@ export function getVehicleDossierStatusBadge(status: string): BadgeStyle {
       return { label: 'Brouillon', color: '#8a8270', bg: '#f1efe8' };
     case 'soumis':
     case 'en_attente_validation':
-      return { label: 'En attente', color: '#b3893f', bg: '#faf1e4' };
+      return { label: 'En attente', color: '#ffffff', bg: '#2563eb' };
     case 'correction_demandee':
-      return { label: 'Correction demandée', color: '#d9704f', bg: '#fdece4' };
+      return { label: 'Correction demandée', color: '#ffffff', bg: '#f97316' };
     case 'refuse':
-      return { label: 'Refusé', color: '#9a3b2f', bg: '#fbeae7' };
+      return { label: 'Refusé', color: '#ffffff', bg: '#dc2626' };
     case 'valide':
-      return { label: 'Validé', color: '#2f6f4f', bg: '#e9f4ee' };
+      return { label: 'Validé', color: '#ffffff', bg: '#16a34a' };
     case 'annule_vendeur':
       return { label: 'Annulé', color: '#8a8270', bg: '#f1efe8' };
     default:

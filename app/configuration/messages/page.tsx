@@ -237,7 +237,7 @@ export default function MessagesConfigurationPage() {
             <button
               type="button"
               onClick={() => { setFormOpen(false); resetForm(); }}
-              className="text-xs font-bold text-[#8a8270] hover:text-[#13243c] transition cursor-pointer"
+              className="text-xs font-bold text-[#4c5058] hover:text-[#13243c] transition cursor-pointer"
             >
               × Annuler
             </button>
@@ -245,7 +245,7 @@ export default function MessagesConfigurationPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-[11px] font-semibold text-[#8a8270] uppercase tracking-wide mb-1.5">
+              <label className="block text-[11px] font-semibold text-[#4c5058] uppercase tracking-wide mb-1.5">
                 Clé unique (Identifiant système)
               </label>
               <input
@@ -260,7 +260,7 @@ export default function MessagesConfigurationPage() {
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-[#8a8270] uppercase tracking-wide mb-1.5">
+              <label className="block text-[11px] font-semibold text-[#4c5058] uppercase tracking-wide mb-1.5">
                 Bloc / Catégorie
               </label>
               <select
@@ -283,7 +283,7 @@ export default function MessagesConfigurationPage() {
               <div className="space-y-3">
                 {LANGUAGES.map((lang) => (
                   <div key={lang.code}>
-                    <label className="block text-[11px] font-semibold text-[#8a8270] mb-1">
+                    <label className="block text-[11px] font-semibold text-[#4c5058] mb-1">
                       {lang.label}
                     </label>
                     <input
@@ -306,7 +306,7 @@ export default function MessagesConfigurationPage() {
               <div className="space-y-3">
                 {LANGUAGES.map((lang) => (
                   <div key={lang.code}>
-                    <label className="block text-[11px] font-semibold text-[#8a8270] mb-1">
+                    <label className="block text-[11px] font-semibold text-[#4c5058] mb-1">
                       {lang.label}
                     </label>
                     <textarea
@@ -372,7 +372,7 @@ export default function MessagesConfigurationPage() {
 
           <div className="divide-y divide-[#efece3]">
             {inscriptionMessages.length === 0 ? (
-              <div className="p-8 text-center text-[#9a917d] text-xs font-medium italic">
+              <div className="p-8 text-center text-[#5a5e66] text-xs font-medium italic">
                 Aucun message configuré pour les inscriptions.
               </div>
             ) : (
@@ -386,7 +386,7 @@ export default function MessagesConfigurationPage() {
                       <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-[#faf1e4] text-[#b3893f] rounded-full">
                         {item.type}
                       </span>
-                      <span className="text-[11px] text-[#9a917d] font-mono bg-gray-100 px-1.5 py-0.5 rounded">
+                      <span className="text-[11px] text-[#5a5e66] font-mono bg-gray-100 px-1.5 py-0.5 rounded">
                         {item.key}
                       </span>
                     </div>
@@ -458,7 +458,7 @@ export default function MessagesConfigurationPage() {
 
           <div className="divide-y divide-[#efece3]">
             {vehicleMessages.length === 0 ? (
-              <div className="p-8 text-center text-[#9a917d] text-xs font-medium italic">
+              <div className="p-8 text-center text-[#5a5e66] text-xs font-medium italic">
                 Aucun message configuré pour les véhicules. Cliquez sur "+ Ajouter motif véhicule" ou "Initialiser motifs par défaut".
               </div>
             ) : (
@@ -472,7 +472,7 @@ export default function MessagesConfigurationPage() {
                       <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-[#fdece4] text-[#d9704f] rounded-full">
                         véhicule
                       </span>
-                      <span className="text-[11px] text-[#9a917d] font-mono bg-gray-100 px-1.5 py-0.5 rounded">
+                      <span className="text-[11px] text-[#5a5e66] font-mono bg-gray-100 px-1.5 py-0.5 rounded">
                         {item.key}
                       </span>
                     </div>

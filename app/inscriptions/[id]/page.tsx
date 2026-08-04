@@ -49,7 +49,7 @@ interface RefusalReason {
 
 export default function InscriptionDetailPage() {
   const router = useRouter();
-  const params = useParams<{ id: string }>();
+  const params = useParams<{ id: string; role?: string }>();
 
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [refusalReasons, setRefusalReasons] = useState<RefusalReason[]>([]);
@@ -69,6 +69,10 @@ export default function InscriptionDetailPage() {
     try {
       const res = await apiRequest('/admin/users');
       const found = (res.users || []).find((u: any) => u._id === params.id);
+      if (found && found.role !== params.role) {
+        router.replace(`/inscription/${found.role}/${found._id}`);
+        return;
+      }
       setSelectedUser(found || null);
     } catch (err: any) {
       setError(err.message || 'Erreur de chargement du dossier.');
@@ -98,7 +102,7 @@ export default function InscriptionDetailPage() {
     setActionLoading('approve');
     try {
       await apiRequest(`/admin/users/${selectedUser._id}/validate`, { method: 'POST' });
-      router.push('/inscriptions');
+      router.push(`/inscriptions/${selectedUser.role}`);
     } catch (err: any) {
       setError(err.message || 'Erreur lors de la validation');
       setActionLoading(null);
@@ -129,7 +133,7 @@ export default function InscriptionDetailPage() {
         }),
       });
 
-      router.push('/inscriptions');
+      router.push(`/inscriptions/${selectedUser.role}`);
     } catch (err: any) {
       setError(err.message || 'Erreur lors du traitement de la décision');
       setActionLoading(null);
@@ -162,7 +166,7 @@ export default function InscriptionDetailPage() {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-[#fbfaf7] text-[#13243c]">
         <p className="font-semibold text-sm">Dossier introuvable.</p>
-        <Link href="/inscriptions/acheteur" className="text-xs font-bold text-[#d9704f] hover:underline">← Retour aux inscriptions</Link>
+        <Link href={params.role === 'vendeur' ? '/inscriptions/vendeur' : '/inscriptions/acheteur'} className="text-xs font-bold text-[#d9704f] hover:underline">← Retour aux inscriptions</Link>
       </div>
     );
   }
@@ -173,7 +177,7 @@ export default function InscriptionDetailPage() {
     <div className="flex-1 min-w-0 overflow-y-auto p-4 pb-20 sm:p-6 sm:pb-24 lg:p-10 lg:pb-24 font-sans text-black flex flex-col xl:flex-row gap-6 xl:gap-8 bg-[#fbfaf7]">
       {/* Left / Main Details */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 font-semibold text-xs text-[#8a8270] mb-4">
+        <div className="flex items-center gap-2 font-semibold text-xs text-[#4c5058] mb-4">
           <Link href={`/inscriptions/${selectedUser.role === 'vendeur' ? 'vendeur' : 'acheteur'}`} className="text-[#d9704f] hover:text-[#c26040] underline">
             ← Inscriptions {selectedUser.role === 'vendeur' ? 'vendeurs' : 'acheteurs'}
           </Link>
@@ -199,7 +203,7 @@ export default function InscriptionDetailPage() {
         {/* Historique des corrections déjà demandées */}
         {selectedUser.rejections && selectedUser.rejections.length > 0 && (
           <>
-            <div className="font-bold text-xs tracking-[0.06em] uppercase text-[#8a8270] mb-3">
+            <div className="font-bold text-xs tracking-[0.06em] uppercase text-[#4c5058] mb-3">
               Historique des corrections demandées
             </div>
             <div className="flex flex-col gap-3 mb-7">
@@ -237,44 +241,44 @@ export default function InscriptionDetailPage() {
         )}
 
         {/* Informations société */}
-        <div className="font-bold text-xs tracking-[0.06em] uppercase text-[#8a8270] mb-3">
+        <div className="font-bold text-xs tracking-[0.06em] uppercase text-[#4c5058] mb-3">
           Informations société
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-7">
           <div className="border border-[#eceadf] bg-white rounded-[10px] p-[14px_16px]">
-            <div className="font-medium text-[11px] text-[#9a917d] uppercase tracking-[0.04em]">Raison sociale</div>
+            <div className="font-medium text-[11px] text-[#5a5e66] uppercase tracking-[0.04em]">Raison sociale</div>
             <div className="font-semibold text-sm text-[#13243c] mt-1.5">{selectedUser.companyName}</div>
           </div>
           <div className="border border-[#eceadf] bg-white rounded-[10px] p-[14px_16px]">
-            <div className="font-medium text-[11px] text-[#9a917d] uppercase tracking-[0.04em]">Activité principale</div>
+            <div className="font-medium text-[11px] text-[#5a5e66] uppercase tracking-[0.04em]">Activité principale</div>
             <div className="font-semibold text-sm text-[#13243c] mt-1.5">{selectedUser.activityType}</div>
           </div>
           <div className="border border-[#eceadf] bg-white rounded-[10px] p-[14px_16px]">
-            <div className="font-medium text-[11px] text-[#9a917d] uppercase tracking-[0.04em]">Numéro SIREN</div>
+            <div className="font-medium text-[11px] text-[#5a5e66] uppercase tracking-[0.04em]">Numéro SIREN</div>
             <div className="font-semibold text-sm text-[#13243c] mt-1.5">{selectedUser.kbisNumber || 'Non renseigné'}</div>
           </div>
           <div className="border border-[#eceadf] bg-white rounded-[10px] p-[14px_16px]">
-            <div className="font-medium text-[11px] text-[#9a917d] uppercase tracking-[0.04em]">Adresse</div>
+            <div className="font-medium text-[11px] text-[#5a5e66] uppercase tracking-[0.04em]">Adresse</div>
             <div className="font-semibold text-sm text-[#13243c] mt-1.5">
               {selectedUser.address ? `${selectedUser.address.street}, ${selectedUser.address.postalCode} ${selectedUser.address.city}, ${selectedUser.address.country}` : 'Non renseignée'}
             </div>
           </div>
           <div className="border border-[#eceadf] bg-white rounded-[10px] p-[14px_16px]">
-            <div className="font-medium text-[11px] text-[#9a917d] uppercase tracking-[0.04em]">Responsable légal</div>
+            <div className="font-medium text-[11px] text-[#5a5e66] uppercase tracking-[0.04em]">Responsable légal</div>
             <div className="font-semibold text-sm text-[#13243c] mt-1.5">{selectedUser.firstName} {selectedUser.lastName}</div>
           </div>
           <div className="border border-[#eceadf] bg-white rounded-[10px] p-[14px_16px]">
-            <div className="font-medium text-[11px] text-[#9a917d] uppercase tracking-[0.04em]">Adresse e-mail</div>
+            <div className="font-medium text-[11px] text-[#5a5e66] uppercase tracking-[0.04em]">Adresse e-mail</div>
             <div className="font-semibold text-sm text-[#13243c] mt-1.5">{selectedUser.email}</div>
           </div>
           <div className="border border-[#eceadf] bg-white rounded-[10px] p-[14px_16px]">
-            <div className="font-medium text-[11px] text-[#9a917d] uppercase tracking-[0.04em]">Téléphone</div>
+            <div className="font-medium text-[11px] text-[#5a5e66] uppercase tracking-[0.04em]">Téléphone</div>
             <div className="font-semibold text-sm text-[#13243c] mt-1.5">{selectedUser.phone}</div>
           </div>
         </div>
 
         {/* Documents fournis */}
-        <div className="font-bold text-xs tracking-[0.06em] uppercase text-[#8a8270] mb-3">
+        <div className="font-bold text-xs tracking-[0.06em] uppercase text-[#4c5058] mb-3">
           Documents fournis
         </div>
         <div className="flex flex-col gap-3 mb-7">
@@ -318,17 +322,17 @@ export default function InscriptionDetailPage() {
         {/* Vendeur specific section */}
         {selectedUser.role === 'vendeur' && (
           <>
-            <div className="font-bold text-xs tracking-[0.06em] uppercase text-[#8a8270] mb-3">
+            <div className="font-bold text-xs tracking-[0.06em] uppercase text-[#4c5058] mb-3">
               Spécificités Vendeur (Agrément & Banque)
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-7">
               <div className="border border-[#eceadf] bg-white rounded-[10px] p-[14px_16px]">
-                <div className="font-medium text-[11px] text-[#9a917d] uppercase tracking-[0.04em]">Agrément Préfectoral VHU</div>
+                <div className="font-medium text-[11px] text-[#5a5e66] uppercase tracking-[0.04em]">Agrément Préfectoral VHU</div>
                 <div className="font-semibold text-sm text-[#13243c] mt-1.5">{selectedUser.vhuNumber || 'Non requis / Non renseigné'}</div>
               </div>
               {selectedUser.bankInfo && (
                 <div className="border border-[#eceadf] bg-white rounded-[10px] p-[14px_16px]">
-                  <div className="font-medium text-[11px] text-[#9a917d] uppercase tracking-[0.04em]">Coordonnées bancaires (RIB)</div>
+                  <div className="font-medium text-[11px] text-[#5a5e66] uppercase tracking-[0.04em]">Coordonnées bancaires (RIB)</div>
                   <div className="font-semibold text-xs text-[#13243c] mt-1.5 space-y-0.5">
                     <div><strong>Banque:</strong> {selectedUser.bankInfo.bankName}</div>
                     <div><strong>Titulaire:</strong> {selectedUser.bankInfo.accountHolder}</div>
@@ -347,7 +351,7 @@ export default function InscriptionDetailPage() {
       {/* Right Sticky Decision Box */}
       <div className="w-full xl:w-[360px] shrink-0">
         <div className="border border-[#eceadf] bg-white rounded-[14px] p-6 sticky top-6 shadow-sm">
-          <div className="font-bold text-xs tracking-[0.06em] uppercase text-[#8a8270] mb-4">
+          <div className="font-bold text-xs tracking-[0.06em] uppercase text-[#4c5058] mb-4">
             Décision administrateur
           </div>
 
@@ -380,7 +384,7 @@ export default function InscriptionDetailPage() {
           )}
 
           {selectedUser.status !== 'soumis' && !['valide', 'suspendu', 'bloque'].includes(selectedUser.status) && (
-            <div className="text-xs text-[#9a917d] italic mb-2">
+            <div className="text-xs text-[#5a5e66] italic mb-2">
               Ce dossier a déjà été traité, aucune action de décision n'est disponible.
             </div>
           )}
@@ -397,7 +401,7 @@ export default function InscriptionDetailPage() {
                     className="h-[42px] px-3.5 flex items-center justify-between cursor-pointer bg-[#fbfaf7] text-xs font-medium"
                   >
                     <span className="text-[#1a2230] font-semibold">{selectedReasons.length} motif(s) sélectionné(s)</span>
-                    <span className="text-[#9a917d]">{causesOpen ? '▲' : '▼'}</span>
+                    <span className="text-[#5a5e66]">{causesOpen ? '▲' : '▼'}</span>
                   </div>
                   {causesOpen && (
                     <div className="border-t border-[#efece3] py-1.5 max-h-[220px] overflow-y-auto space-y-1">
@@ -417,7 +421,7 @@ export default function InscriptionDetailPage() {
                             </div>
                             <div className="min-w-0">
                               <div className="font-medium text-xs text-[#1a2230]">{item.label.fr}</div>
-                              <div className="text-[11px] text-[#9a917d] mt-0.5">{item.message.fr}</div>
+                              <div className="text-[11px] text-[#5a5e66] mt-0.5">{item.message.fr}</div>
                             </div>
                           </div>
                         );

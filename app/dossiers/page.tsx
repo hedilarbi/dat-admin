@@ -6,6 +6,7 @@ import { apiRequest } from '../api';
 import Alert from '../components/Alert';
 import SkeletonRows from '../components/SkeletonRows';
 import type { VehicleDossier } from '../lib/vehicleDossier';
+import { Badge, getVehicleDossierStatusBadge } from '../components/StatusBadge';
 
 interface DossierCounts {
   enAttente: number;
@@ -13,14 +14,6 @@ interface DossierCounts {
   valide: number;
   refuse: number;
 }
-
-const STATUS_FILTERS = [
-  { value: 'all', label: 'Tous' },
-  { value: 'soumis', label: 'En attente' },
-  { value: 'correction_demandee', label: 'Correction demandée' },
-  { value: 'valide', label: 'Validés' },
-  { value: 'refuse', label: 'Rejetés' },
-];
 
 export default function AdminDossiersPage() {
   const router = useRouter();
@@ -38,6 +31,14 @@ export default function AdminDossiersPage() {
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState('');
+
+  const statusFilters = [
+    { value: 'all', label: `Tous ${counts.enAttente + counts.correction + counts.valide + counts.refuse}` },
+    { value: 'soumis', label: `En attente ${counts.enAttente}` },
+    { value: 'correction_demandee', label: `Correction demandée ${counts.correction}` },
+    { value: 'valide', label: `Validés ${counts.valide}` },
+    { value: 'refuse', label: `Rejetés ${counts.refuse}` },
+  ];
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -73,22 +74,6 @@ export default function AdminDossiersPage() {
     fetchDossiers();
   }, [statusFilter, debouncedSearch, page]);
 
-  const getStatusMeta = (status: string) => {
-    switch (status) {
-      case 'soumis':
-      case 'en_attente_validation':
-        return { label: 'En attente', color: '#b3893f', bg: '#faf1e4' };
-      case 'valide':
-        return { label: 'Validé', color: '#2f6f4f', bg: '#e9f4ee' };
-      case 'refuse':
-        return { label: 'Rejeté', color: '#9a3b2f', bg: '#fbeae7' };
-      case 'correction_demandee':
-        return { label: 'Correction demandée', color: '#d9704f', bg: '#fdece4' };
-      default:
-        return { label: status, color: '#5a5e66', bg: '#eef1f5' };
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex-1 w-full p-6 sm:p-8 lg:p-10 font-sans text-black bg-white">
@@ -119,48 +104,9 @@ export default function AdminDossiersPage() {
         />
       </div>
 
-      {/* 4 Stat Cards Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6.5">
-        <div className="bg-[#faf1e4] rounded-[12px] p-4 sm:p-[16px_20px]">
-          <div className="font-semibold text-[11px] uppercase tracking-[0.05em] text-[#b3893f]">
-            En attente
-          </div>
-          <div className="font-bold text-[30px] leading-none text-[#13243c] mt-2 font-['Saira_Condensed',sans-serif]">
-            {counts.enAttente || 0}
-          </div>
-        </div>
-
-        <div className="bg-[#fdece4] rounded-[12px] p-4 sm:p-[16px_20px]">
-          <div className="font-semibold text-[11px] uppercase tracking-[0.05em] text-[#d9704f]">
-            Correction demandée
-          </div>
-          <div className="font-bold text-[30px] leading-none text-[#13243c] mt-2 font-['Saira_Condensed',sans-serif]">
-            {counts.correction || 0}
-          </div>
-        </div>
-
-        <div className="bg-[#e9f4ee] rounded-[12px] p-4 sm:p-[16px_20px]">
-          <div className="font-semibold text-[11px] uppercase tracking-[0.05em] text-[#2f6f4f]">
-            Validés ce mois
-          </div>
-          <div className="font-bold text-[30px] leading-none text-[#13243c] mt-2 font-['Saira_Condensed',sans-serif]">
-            {counts.valide || 0}
-          </div>
-        </div>
-
-        <div className="bg-[#fbeae7] rounded-[12px] p-4 sm:p-[16px_20px]">
-          <div className="font-semibold text-[11px] uppercase tracking-[0.05em] text-[#9a3b2f]">
-            Rejetés
-          </div>
-          <div className="font-bold text-[30px] leading-none text-[#13243c] mt-2 font-['Saira_Condensed',sans-serif]">
-            {counts.refuse || 0}
-          </div>
-        </div>
-      </div>
-
       {/* Filter Pills */}
       <div className="flex items-center gap-2.5 mb-4.5 overflow-x-auto pb-1">
-        {STATUS_FILTERS.map((f) => {
+        {statusFilters.map((f) => {
           const isActive = statusFilter === f.value;
           return (
             <button
@@ -183,7 +129,7 @@ export default function AdminDossiersPage() {
 
       {/* Table */}
       <div className={`border border-[#eceadf] rounded-[12px] overflow-hidden bg-white shadow-xs transition-opacity ${fetching ? 'opacity-60' : ''}`}>
-        <div className="grid grid-cols-[2fr_1fr_1.1fr_1fr_1fr_1fr_80px] p-[14px_20px] bg-[#f8f7f2] font-semibold text-[11px] uppercase tracking-[0.05em] text-[#8a8270] border-b border-[#efece3]">
+        <div className="grid grid-cols-[2fr_1fr_1.1fr_1fr_1fr_1fr_80px] p-[14px_20px] bg-[#f8f7f2] font-semibold text-[11px] uppercase tracking-[0.05em] text-[#4c5058] border-b border-[#efece3]">
           <div>Véhicule</div>
           <div>Immat.</div>
           <div>Vendeur</div>
@@ -194,7 +140,7 @@ export default function AdminDossiersPage() {
         </div>
 
         {dossiers.length === 0 ? (
-          <div className="p-10 text-center text-[#9a917d] font-medium text-sm">
+          <div className="p-10 text-center text-[#5a5e66] font-medium text-sm">
             Aucun dossier véhicule trouvé.
           </div>
         ) : (
@@ -203,7 +149,7 @@ export default function AdminDossiersPage() {
             const plate = row.registrationNumber || row.vin || '—';
             const sellerName = row.seller?.companyName || (row.seller?.firstName ? `${row.seller.firstName} ${row.seller.lastName || ''}` : 'Vendeur');
             const dateStr = row.submittedAt ? new Date(row.submittedAt).toLocaleDateString('fr-FR') : '—';
-            const meta = getStatusMeta(row.status);
+            const meta = getVehicleDossierStatusBadge(row.status);
 
             return (
               <div
@@ -227,12 +173,7 @@ export default function AdminDossiersPage() {
                   {dateStr}
                 </div>
                 <div>
-                  <span
-                    className="inline-block font-semibold text-[11px] leading-none px-3 py-1.5 rounded-full"
-                    style={{ background: meta.bg, color: meta.color }}
-                  >
-                    {meta.label}
-                  </span>
+                  <Badge style={meta} className="py-1.5" />
                 </div>
                 <div className="font-semibold text-[12px] text-[#d9704f] hover:underline text-right">
                   Voir →
@@ -244,7 +185,7 @@ export default function AdminDossiersPage() {
       </div>
 
       {total > 0 && (
-        <div className="flex items-center justify-between mt-5 text-xs text-[#8a8270]">
+        <div className="flex items-center justify-between mt-5 text-xs text-[#4c5058]">
           <div>
             {total} résultat{total > 1 ? 's' : ''} — page {page} / {totalPages}
           </div>
