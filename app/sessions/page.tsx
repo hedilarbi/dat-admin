@@ -6,6 +6,7 @@ import Alert from '../components/Alert';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Spinner from '../components/Spinner';
 import type { VehicleDossier } from '../lib/vehicleDossier';
+import { Search } from 'lucide-react';
 
 interface SessionData {
   _id: string;
@@ -40,6 +41,25 @@ const WEEKDAY_NAMES = [
 
 const CALENDAR_WEEKDAY_HEADERS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
+function VehicleCover({ vehicle }: { vehicle: VehicleDossier }) {
+  const cover = vehicle.photos?.find((photo) => photo.isCover) || vehicle.photos?.[0];
+  const imageUrl = cover?.processedUrl || cover?.originalUrl;
+  return imageUrl ? (
+    <div className="h-[72px] w-[104px] shrink-0 overflow-hidden rounded-[10px] bg-[#eef1f5]">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={imageUrl} alt={`${vehicle.brand || ''} ${vehicle.model || ''}`.trim()} className="h-full w-full object-cover" />
+    </div>
+  ) : (
+    <div className="h-[72px] w-[104px] shrink-0 rounded-[10px] bg-[#eef1f5] flex items-center justify-center font-bold text-[11px] text-[#8ea0bd]">
+      {(vehicle.brand || 'VEH').slice(0, 3).toUpperCase()}
+    </div>
+  );
+}
+
+function VehicleField({ label, value }: { label: string; value?: React.ReactNode }) {
+  return <div className="rounded-[10px] bg-[#f8f7f2] p-3"><div className="text-[10px] font-bold uppercase tracking-wide text-[#7a756a]">{label}</div><div className="mt-1 text-sm font-semibold text-[#13243c]">{value || '—'}</div></div>;
+}
+
 export default function AdminSessionsPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
@@ -65,6 +85,9 @@ export default function AdminSessionsPage() {
   const [panelSessionId, setPanelSessionId] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<SessionData | null>(null);
   const [searchAvailable, setSearchAvailable] = useState('');
+  const [availableBrand, setAvailableBrand] = useState('all');
+  const [availableProcedure, setAvailableProcedure] = useState('all');
+  const [detailVehicle, setDetailVehicle] = useState<VehicleDossier | null>(null);
   const [initialVehicleIds, setInitialVehicleIds] = useState<string[]>([]);
   const [sessionDirty, setSessionDirty] = useState(false);
   const [savingSession, setSavingSession] = useState(false);
@@ -131,15 +154,15 @@ export default function AdminSessionsPage() {
     switch (status) {
       case 'open':
       case 'active':
-        return { color: '#2f6f4f', label: 'Session ouverte', bg: '#e9f4ee' };
+        return { color: '#166534', label: 'Session ouverte', bg: '#dcfce7' };
       case 'upcoming':
       case 'programmee':
-        return { color: '#b3893f', label: 'Session à venir', bg: '#faf1e4' };
+        return { color: '#1d4ed8', label: 'Session à venir', bg: '#dbeafe' };
       case 'closed':
       case 'cloturee':
-        return { color: '#9a917d', label: 'Session clôturée', bg: '#f1efe8' };
+        return { color: '#475569', label: 'Session clôturée', bg: '#e2e8f0' };
       case 'annulee':
-        return { color: '#9a3b2f', label: 'Session annulée', bg: '#fbeae7' };
+        return { color: '#b91c1c', label: 'Session annulée', bg: '#fee2e2' };
       default:
         return { color: '#5a5e66', label: 'Session', bg: '#eef1f5' };
     }
@@ -187,7 +210,20 @@ export default function AdminSessionsPage() {
     setInitialVehicleIds([]);
     setSessionDirty(false);
     setSearchAvailable('');
+    setAvailableBrand('all');
+    setAvailableProcedure('all');
+    setDetailVehicle(null);
     fetchAvailableVehicles();
+  };
+
+  const openVehicleDetail = async (vehicle: VehicleDossier) => {
+    setDetailVehicle(vehicle);
+    try {
+      const response = await apiRequest(`/admin/vehicle-dossiers/${vehicle._id}`);
+      if (response.dossier) setDetailVehicle(response.dossier);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleAddVehicleToSession = (vehicleId: string) => {
@@ -309,11 +345,24 @@ export default function AdminSessionsPage() {
 
   const listStateMeta = (status: SessionData['status']) => {
     const state = sessionState(status);
-    if (state === 'ongoing') return { label: 'En cours', color: '#2f6f4f', bg: '#e9f4ee' };
-    if (state === 'finished') return { label: 'Terminée', color: '#5a5e66', bg: '#f1efe8' };
-    if (state === 'cancelled') return { label: 'Annulée', color: '#9a3b2f', bg: '#fbeae7' };
-    return { label: 'Programmée', color: '#8a6a2f', bg: '#faf1e4' };
+    if (state === 'ongoing') return { label: 'En cours', color: '#166534', bg: '#dcfce7' };
+    if (state === 'finished') return { label: 'Terminée', color: '#475569', bg: '#e2e8f0' };
+    if (state === 'cancelled') return { label: 'Annulée', color: '#b91c1c', bg: '#fee2e2' };
+    return { label: 'Programmée', color: '#1d4ed8', bg: '#dbeafe' };
   };
+
+  const availableBrands = Array.from(new Set(availableVehicles.map((vehicle) => vehicle.brand).filter(Boolean) as string[])).sort();
+  const availableProcedures = Array.from(new Set(availableVehicles.map((vehicle) => vehicle.procedure).filter(Boolean) as string[])).sort();
+  const filteredAvailableVehicles = availableVehicles.filter((vehicle) => {
+    const query = searchAvailable.trim().toLowerCase();
+    const searchable = [vehicle.brand, vehicle.model, vehicle.registrationNumber, vehicle.vin, vehicle.seller?.companyName, vehicle.seller?.firstName, vehicle.seller?.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return (!query || searchable.includes(query))
+      && (availableBrand === 'all' || vehicle.brand === availableBrand)
+      && (availableProcedure === 'all' || vehicle.procedure === availableProcedure);
+  });
 
   const filteredSessions = sessions
     .filter((session) => {
@@ -423,6 +472,7 @@ export default function AdminSessionsPage() {
           return (
             <div
               key={idx}
+              style={session && meta ? { backgroundColor: meta.bg, borderColor: meta.color } : undefined}
               onClick={() => {
                 if (session) {
                   openSessionDetail(session);
@@ -470,15 +520,15 @@ export default function AdminSessionsPage() {
       {/* Legend Footer */}
       <div className="flex flex-wrap items-center gap-[22px] border-t border-[#efece3] pt-4 pb-8 sm:pb-10">
         <div className="flex items-center gap-2">
-          <div className="w-[11px] h-[11px] rounded-[3px] bg-[#2f6f4f]" />
+          <div className="w-[11px] h-[11px] rounded-[3px] bg-[#16a34a]" />
           <span className="font-medium text-[12px] leading-none text-[#5a5e66]">Session ouverte</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-[11px] h-[11px] rounded-[3px] bg-[#b3893f]" />
+          <div className="w-[11px] h-[11px] rounded-[3px] bg-[#2563eb]" />
           <span className="font-medium text-[12px] leading-none text-[#5a5e66]">Session à venir</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-[11px] h-[11px] rounded-[3px] bg-[#9a917d]" />
+          <div className="w-[11px] h-[11px] rounded-[3px] bg-[#64748b]" />
           <span className="font-medium text-[12px] leading-none text-[#5a5e66]">Session clôturée</span>
         </div>
       </div>
@@ -533,11 +583,11 @@ export default function AdminSessionsPage() {
       {/* MODAL 1: Session Detail Side Drawer */}
       {panelSessionId && selectedSession && (
         <div
-          className="fixed inset-0 bg-[#13243c]/40 backdrop-blur-xs flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-[#13243c]/40 backdrop-blur-xs flex items-center justify-center z-50"
           onClick={closeSessionDetail}
         >
           <div
-            className="w-full max-w-[1120px] h-[92vh] max-h-[92vh] bg-white rounded-[16px] shadow-[0_26px_60px_rgba(0,0,0,0.28)] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            className="h-full w-full bg-white shadow-[0_26px_60px_rgba(0,0,0,0.28)] flex flex-col overflow-hidden animate-in fade-in duration-150"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -571,42 +621,23 @@ export default function AdminSessionsPage() {
                   <div className="font-bold text-[11px] leading-none tracking-[0.06em] uppercase text-[#4c5058] mb-2.5">
                     Véhicules validés disponibles ({availableVehicles.length})
                   </div>
-                  <input
-                    type="text"
-                    placeholder="Rechercher marque, immat, vendeur…"
-                    value={searchAvailable}
-                    onChange={(e) => setSearchAvailable(e.target.value)}
-                    className="w-full h-10 border border-[#dcd7cb] rounded-[9px] px-3 font-normal text-[13px] text-[#1a2230] focus:outline-none focus:border-[#13243c] bg-white transition"
-                  />
+                  <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
+                    <input type="text" placeholder="Marque, immat., vendeur…" value={searchAvailable} onChange={(e) => setSearchAvailable(e.target.value)} className="h-10 border border-[#dcd7cb] rounded-[9px] px-3 font-normal text-[13px] text-[#1a2230] focus:outline-none focus:border-[#13243c] bg-white transition" />
+                    <select value={availableBrand} onChange={(e) => setAvailableBrand(e.target.value)} className="h-10 rounded-[9px] border border-[#dcd7cb] bg-white px-3 text-[12px] text-[#13243c]"><option value="all">Toutes les marques</option>{availableBrands.map((brand) => <option key={brand}>{brand}</option>)}</select>
+                    <select value={availableProcedure} onChange={(e) => setAvailableProcedure(e.target.value)} className="h-10 rounded-[9px] border border-[#dcd7cb] bg-white px-3 text-[12px] text-[#13243c]"><option value="all">Toutes les procédures</option>{availableProcedures.map((procedure) => <option key={procedure}>{procedure}</option>)}</select>
+                  </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 sm:p-[4px_26px_20px] divide-y divide-[#f1efe8]">
-                  {availableVehicles
-                    .filter((v) => {
-                      if (!searchAvailable) return true;
-                      const q = searchAvailable.toLowerCase();
-                      const label = [v.brand, v.model].join(' ').toLowerCase();
-                      const plate = (v.registrationNumber || v.vin || '').toLowerCase();
-                      return label.includes(q) || plate.includes(q);
-                    })
-                    .length === 0 ? (
+                  {filteredAvailableVehicles.length === 0 ? (
                     <div className="py-8 text-center font-medium text-[13px] leading-relaxed text-[#5a5e66]">
                       Aucun véhicule validé disponible sans session.
                     </div>
                   ) : (
-                    availableVehicles
-                      .filter((v) => {
-                        if (!searchAvailable) return true;
-                        const q = searchAvailable.toLowerCase();
-                        const label = [v.brand, v.model].join(' ').toLowerCase();
-                        const plate = (v.registrationNumber || v.vin || '').toLowerCase();
-                        return label.includes(q) || plate.includes(q);
-                      })
+                    filteredAvailableVehicles
                       .map((v) => (
                         <div key={v._id} className="flex items-center gap-3 py-3">
-                          <div className="w-[38px] h-[38px] rounded-[8px] bg-[#eef1f5] shrink-0 flex items-center justify-center font-bold text-[10px] leading-none text-[#8ea0bd]">
-                            {(v.brand || 'VEH').slice(0, 2).toUpperCase()}
-                          </div>
+                          <VehicleCover vehicle={v} />
                           <div className="flex-1 min-w-0">
                             <div className="font-semibold text-[13px] leading-snug text-[#13243c] truncate">
                               {[v.brand, v.model].filter(Boolean).join(' ') || 'Sans nom'}
@@ -615,6 +646,7 @@ export default function AdminSessionsPage() {
                               {v.registrationNumber || v.vin || '—'} · {v.seller?.companyName || 'Vendeur'}
                             </div>
                           </div>
+                          <button type="button" onClick={() => openVehicleDetail(v)} className="w-9 h-9 rounded-[8px] border border-[#cbd5e1] flex items-center justify-center text-[#13243c] hover:bg-slate-50" title="Voir la fiche du véhicule"><Search size={16} /></button>
                           <button
                             type="button"
                             onClick={() => handleAddVehicleToSession(v._id)}
@@ -645,9 +677,7 @@ export default function AdminSessionsPage() {
                   ) : (
                     selectedSession.vehicles.map((v) => (
                       <div key={v._id} className="flex items-center gap-3 py-3">
-                        <div className="w-[38px] h-[38px] rounded-[8px] bg-[#eef1f5] shrink-0 flex items-center justify-center font-bold text-[10px] leading-none text-[#8ea0bd]">
-                          {(v.brand || 'VEH').slice(0, 2).toUpperCase()}
-                        </div>
+                        <VehicleCover vehicle={v} />
                         <div className="flex-1 min-w-0">
                           <div className="font-semibold text-[13px] leading-snug text-[#13243c] truncate">
                             {[v.brand, v.model].filter(Boolean).join(' ') || 'Sans nom'}
@@ -659,6 +689,7 @@ export default function AdminSessionsPage() {
                         <div className="font-semibold text-[12px] leading-none font-mono text-[#13243c] shrink-0">
                           {v.reservePrice ? `${v.reservePrice.toLocaleString('fr-FR')} €` : '—'}
                         </div>
+                        <button type="button" onClick={() => openVehicleDetail(v)} className="w-9 h-9 rounded-[8px] border border-[#cbd5e1] flex items-center justify-center text-[#13243c] hover:bg-slate-50" title="Voir la fiche du véhicule"><Search size={16} /></button>
                         <button
                           type="button"
                           onClick={() => handleRemoveVehicleFromSession(v._id)}
@@ -697,6 +728,39 @@ export default function AdminSessionsPage() {
                   Enregistrer
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {detailVehicle && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#13243c]/60 p-4 backdrop-blur-sm" onClick={() => setDetailVehicle(null)}>
+          <div className="max-h-[92vh] w-full max-w-[980px] overflow-y-auto rounded-[16px] bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="sticky top-0 z-10 flex items-start justify-between border-b border-[#efece3] bg-white px-6 py-5">
+              <div><div className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#a3987f]">Fiche véhicule</div><h2 className="mt-1 text-2xl font-bold uppercase text-[#13243c]">{[detailVehicle.brand, detailVehicle.model].filter(Boolean).join(' ') || 'Véhicule'}</h2></div>
+              <button type="button" onClick={() => setDetailVehicle(null)} className="h-9 w-9 rounded-[8px] border border-[#dcd7cb] text-lg text-[#5a5e66]">×</button>
+            </div>
+            <div className="space-y-6 p-6">
+              {detailVehicle.photos?.length > 0 && <div className="grid grid-cols-2 gap-3 md:grid-cols-4">{detailVehicle.photos.map((photo, index) => <div key={photo._id || index} className="aspect-[4/3] overflow-hidden rounded-[10px] bg-[#eef1f5]">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={photo.processedUrl || photo.originalUrl} alt="" className="h-full w-full object-cover" /></div>)}</div>}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <VehicleField label="Immatriculation" value={detailVehicle.registrationNumber} />
+                <VehicleField label="VIN" value={detailVehicle.vin} />
+                <VehicleField label="Année" value={detailVehicle.year} />
+                <VehicleField label="Kilométrage" value={detailVehicle.mileage != null ? `${detailVehicle.mileage.toLocaleString('fr-FR')} km` : undefined} />
+                <VehicleField label="Énergie" value={detailVehicle.energyLabel || detailVehicle.fuelType} />
+                <VehicleField label="Boîte de vitesse" value={detailVehicle.gearbox} />
+                <VehicleField label="Couleur" value={detailVehicle.color} />
+                <VehicleField label="Carrosserie" value={detailVehicle.bodyType} />
+                <VehicleField label="Procédure" value={detailVehicle.procedure} />
+                <VehicleField label="VRADE" value={detailVehicle.vrade} />
+                <VehicleField label="Prix de réserve" value={detailVehicle.reservePrice != null ? `${detailVehicle.reservePrice.toLocaleString('fr-FR')} €` : undefined} />
+                <VehicleField label="Carte grise disponible" value={detailVehicle.registrationCardAvailable === undefined ? undefined : detailVehicle.registrationCardAvailable ? 'Oui' : 'Non'} />
+                <VehicleField label="Vendeur" value={detailVehicle.seller?.companyName || `${detailVehicle.seller?.firstName || ''} ${detailVehicle.seller?.lastName || ''}`.trim()} />
+                <VehicleField label="Téléphone vendeur" value={detailVehicle.seller?.phone} />
+                <VehicleField label="Adresse actuelle" value={detailVehicle.vehicleAddress} />
+                <VehicleField label="Livre de police" value={detailVehicle.policeBookNumber} />
+              </div>
+              <div><div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-[#4c5058]">Description du choc</div><div className="whitespace-pre-wrap rounded-[10px] bg-[#f8f7f2] p-4 text-sm leading-6 text-[#13243c]">{detailVehicle.description || '—'}</div></div>
             </div>
           </div>
         </div>

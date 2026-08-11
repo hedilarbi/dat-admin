@@ -8,6 +8,7 @@ import Alert from '../components/Alert';
 import SkeletonRows from '../components/SkeletonRows';
 import FilterPills from '../components/FilterPills';
 import { Badge, getInscriptionStatusBadge } from '../components/StatusBadge';
+import StatCard from '../components/StatCard';
 
 interface UserProfile {
   _id: string;
@@ -31,9 +32,11 @@ interface UserCounts {
   correction: number;
   valide: number;
   refuse: number;
+  roleTotal: number;
+  newThisMonth: number;
 }
 
-const EMPTY_COUNTS: UserCounts = { all: 0, acheteur: 0, vendeur: 0, enAttente: 0, correction: 0, valide: 0, refuse: 0 };
+const EMPTY_COUNTS: UserCounts = { all: 0, acheteur: 0, vendeur: 0, enAttente: 0, correction: 0, valide: 0, refuse: 0, roleTotal: 0, newThisMonth: 0 };
 
 const PAGE_LIMIT = 20;
 
@@ -54,6 +57,9 @@ export default function InscriptionsRoleList({ role, title }: InscriptionsRoleLi
   const [userStatusFilter, setUserStatusFilter] = useState<string>('all');
   const [userSearch, setUserSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [cityFilter, setCityFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
@@ -82,6 +88,9 @@ export default function InscriptionsRoleList({ role, title }: InscriptionsRoleLi
     setPage(1);
     setUserStatusFilter('all');
     setUserSearch('');
+    setCityFilter('');
+    setDateFrom('');
+    setDateTo('');
   }, [role]);
 
   const handleStatusFilterChange = (value: string) => {
@@ -97,6 +106,9 @@ export default function InscriptionsRoleList({ role, title }: InscriptionsRoleLi
         params.set('role', role);
         if (userStatusFilter !== 'all') params.set('status', userStatusFilter);
         if (debouncedSearch) params.set('search', debouncedSearch);
+        if (cityFilter.trim()) params.set('city', cityFilter.trim());
+        if (dateFrom) params.set('dateFrom', dateFrom);
+        if (dateTo) params.set('dateTo', dateTo);
         params.set('page', String(page));
         params.set('limit', String(PAGE_LIMIT));
 
@@ -115,7 +127,7 @@ export default function InscriptionsRoleList({ role, title }: InscriptionsRoleLi
     };
 
     fetchUsers();
-  }, [role, userStatusFilter, debouncedSearch, page, router]);
+  }, [role, userStatusFilter, debouncedSearch, cityFilter, dateFrom, dateTo, page, router]);
 
   if (loading) {
     return (
@@ -142,6 +154,29 @@ export default function InscriptionsRoleList({ role, title }: InscriptionsRoleLi
           />
         }
       />
+
+      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <StatCard label="Total utilisateurs" value={counts.roleTotal} bg="#eef1f5" labelColor="#5a5e66" />
+        <StatCard label="Nouveaux utilisateurs ce mois" value={counts.newThisMonth} bg="#e9f4ee" labelColor="#2f6f4f" />
+      </div>
+
+      <div className="mb-5 rounded-[12px] border border-[#eceadf] bg-white p-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[1.2fr_1fr_1fr_auto] lg:items-end">
+          <label>
+            <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.05em] text-[#4c5058]">Ville</span>
+            <input value={cityFilter} onChange={(e) => { setCityFilter(e.target.value); setPage(1); }} placeholder="Filtrer par ville" className="h-11 w-full rounded-[8px] border border-[#dcd7cb] bg-white px-3 text-sm" />
+          </label>
+          <label>
+            <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.05em] text-[#4c5058]">Inscrit du</span>
+            <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} className="h-11 w-full rounded-[8px] border border-[#dcd7cb] bg-white px-3 text-sm" />
+          </label>
+          <label>
+            <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.05em] text-[#4c5058]">Inscrit au</span>
+            <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} className="h-11 w-full rounded-[8px] border border-[#dcd7cb] bg-white px-3 text-sm" />
+          </label>
+          <button type="button" onClick={() => { setCityFilter(''); setDateFrom(''); setDateTo(''); setPage(1); }} className="h-11 rounded-[8px] border border-[#dcd7cb] bg-white px-4 text-xs font-bold uppercase text-[#13243c]">Réinitialiser</button>
+        </div>
+      </div>
 
       <div className="mb-5">
         <FilterPills
