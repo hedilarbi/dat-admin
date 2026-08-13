@@ -5,8 +5,9 @@ import { apiRequest } from '../api';
 import Alert from '../components/Alert';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Spinner from '../components/Spinner';
+import ConfirmModal from '../components/ConfirmModal';
 import type { VehicleDossier } from '../lib/vehicleDossier';
-import { Search } from 'lucide-react';
+import { Search, Trash2 } from 'lucide-react';
 
 interface SessionData {
   _id: string;
@@ -89,8 +90,11 @@ export default function AdminSessionsPage() {
   const [availableProcedure, setAvailableProcedure] = useState('all');
   const [detailVehicle, setDetailVehicle] = useState<VehicleDossier | null>(null);
   const [initialVehicleIds, setInitialVehicleIds] = useState<string[]>([]);
+  const [initialSessionName, setInitialSessionName] = useState('');
   const [sessionDirty, setSessionDirty] = useState(false);
   const [savingSession, setSavingSession] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deletingSession, setDeletingSession] = useState(false);
 
   const [configOpen, setConfigOpen] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
@@ -193,11 +197,13 @@ export default function AdminSessionsPage() {
   const openSessionDetail = async (session: SessionData) => {
     setPanelSessionId(session._id);
     setSelectedSession(session);
+    setInitialSessionName(session.name);
     setInitialVehicleIds([]);
     setSessionDirty(false);
     try {
       const detail = await apiRequest(`/sessions/${session._id}`);
       setSelectedSession(detail);
+      setInitialSessionName(detail.name);
       setInitialVehicleIds((detail.vehicles || []).map((vehicle: VehicleDossier) => vehicle._id));
     } catch (err) {
       console.error(err);
@@ -208,6 +214,7 @@ export default function AdminSessionsPage() {
     setPanelSessionId(null);
     setSelectedSession(null);
     setInitialVehicleIds([]);
+    setInitialSessionName('');
     setSessionDirty(false);
     setSearchAvailable('');
     setAvailableBrand('all');
@@ -261,6 +268,10 @@ export default function AdminSessionsPage() {
     setMessage('');
     try {
       await Promise.all([
+        ...(selectedSession.name.trim() !== initialSessionName.trim() ? [apiRequest(`/sessions/${selectedSession._id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ name: selectedSession.name.trim() }),
+        })] : []),
         ...addedIds.map((vehicleId) => apiRequest(`/sessions/${selectedSession._id}/add-vehicle`, {
           method: 'POST',
           body: JSON.stringify({ vehicleId }),
@@ -275,11 +286,34 @@ export default function AdminSessionsPage() {
       setPanelSessionId(null);
       setSelectedSession(null);
       setInitialVehicleIds([]);
+      setInitialSessionName('');
       setSessionDirty(false);
     } catch (err: any) {
       setError(err.message || 'Erreur lors de l\'enregistrement de la session.');
     } finally {
       setSavingSession(false);
+    }
+  };
+
+  const handleDeleteSession = async () => {
+    if (!selectedSession || deletingSession) return;
+    setDeletingSession(true);
+    setError('');
+    setMessage('');
+    try {
+      await apiRequest(`/sessions/${selectedSession._id}`, { method: 'DELETE' });
+      setDeleteConfirmOpen(false);
+      setPanelSessionId(null);
+      setSelectedSession(null);
+      setInitialVehicleIds([]);
+      setInitialSessionName('');
+      setSessionDirty(false);
+      await Promise.all([fetchSessions(), fetchAvailableVehicles()]);
+      setMessage('Session supprimée. Les véhicules associés sont de nouveau disponibles.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erreur lors de la suppression de la session.');
+    } finally {
+      setDeletingSession(false);
     }
   };
 
@@ -596,21 +630,28 @@ export default function AdminSessionsPage() {
                 <div className="font-semibold text-[11px] leading-none tracking-[0.16em] uppercase text-[#a3987f] mb-2">
                   Du {new Date(selectedSession.startDate || selectedSession.date || Date.now()).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })} au {new Date(selectedSession.endDate || (new Date(selectedSession.startDate || selectedSession.date || Date.now()).getTime() + (selectedSession.durationHours || 48) * 3600000)).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
                 </div>
-                <div className="font-bold text-[26px] leading-none uppercase text-[#13243c] font-['Saira_Condensed',sans-serif]">
-                  {selectedSession.name}
-                </div>
+                <label className="block max-w-[520px]">
+                  <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.08em] text-[#5a5e66]">Nom de la session</span>
+                  <input
+                    value={selectedSession.name}
+                    onChange={(event) => {
+                      setSelectedSession({ ...selectedSession, name: event.target.value });
+                      setSessionDirty(event.target.value.trim() !== initialSessionName.trim() || (selectedSession.vehicles || []).map((vehicle) => vehicle._id).some((id) => !initialVehicleIds.includes(id)) || initialVehicleIds.some((id) => !(selectedSession.vehicles || []).some((vehicle) => vehicle._id === id)));
+                    }}
+                    className="h-11 w-full rounded-[9px] border border-[#dcd7cb] bg-white px-3 text-[18px] font-bold uppercase text-[#13243c] focus:border-[#13243c] focus:outline-none"
+                  />
+                </label>
                 <div className="font-semibold text-[12px] leading-none mt-1.5" style={{ color: statusMeta(selectedSession.status).color }}>
                   {statusMeta(selectedSession.status).label} · {selectedSession.vehicles?.length || selectedSession.vehicleCount || 0} véhicule(s) inscrit(s)
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={closeSessionDetail}
-                className="w-8 h-8 rounded-[8px] border border-[#dcd7cb] flex items-center justify-center font-semibold text-[15px] text-[#5a5e66] hover:bg-gray-50 transition cursor-pointer shrink-0"
-              >
-                ×
-              </button>
+              <div className="flex shrink-0 items-center gap-2">
+                <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="flex h-9 items-center gap-2 rounded-[8px] border border-[#efb7b7] bg-white px-3 text-[11px] font-bold uppercase text-[#b91c1c] transition hover:bg-red-50">
+                  <Trash2 size={15} /> Supprimer
+                </button>
+                <button type="button" onClick={closeSessionDetail} className="w-9 h-9 rounded-[8px] border border-[#dcd7cb] flex items-center justify-center font-semibold text-[15px] text-[#5a5e66] hover:bg-gray-50 transition cursor-pointer shrink-0">×</button>
+              </div>
             </div>
 
             {/* Split Content: Available vs Assigned */}
@@ -721,7 +762,7 @@ export default function AdminSessionsPage() {
                 <button
                   type="button"
                   onClick={handleSaveSession}
-                  disabled={!sessionDirty || savingSession}
+                  disabled={!sessionDirty || savingSession || !selectedSession.name.trim()}
                   className="h-11 min-w-[150px] rounded-[9px] bg-[#13243c] px-5 text-[12px] font-bold uppercase text-white hover:bg-[#1a3050] disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {savingSession && <Spinner />}
@@ -966,6 +1007,16 @@ export default function AdminSessionsPage() {
           </form>
         </div>
       )}
+
+      <ConfirmModal
+        open={deleteConfirmOpen}
+        title="Supprimer cette session"
+        message={`Voulez-vous vraiment supprimer « ${selectedSession?.name || 'cette session'} » ? Les ${selectedSession?.vehicles?.length || selectedSession?.vehicleCount || 0} véhicule(s) associé(s) seront retirés de la session et redeviendront disponibles.`}
+        confirmLabel={deletingSession ? 'Suppression…' : 'Supprimer'}
+        danger
+        onCancel={() => { if (!deletingSession) setDeleteConfirmOpen(false); }}
+        onConfirm={handleDeleteSession}
+      />
     </div>
   );
 }

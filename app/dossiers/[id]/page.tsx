@@ -11,6 +11,7 @@ import ConfirmModal from '../../components/ConfirmModal';
 import BlurZoneEditor from '../../components/vehicleDossier/BlurZoneEditor';
 import PhotoTile from '../../components/vehicleDossier/PhotoTile';
 import type { BlurZone, DossierDocument, DossierPhoto, VehicleDossier } from '../../lib/vehicleDossier';
+import { ArrowLeft } from 'lucide-react';
 
 interface RefusalReason {
   key: string;
@@ -315,7 +316,7 @@ export default function AdminDossierVehiculeDetailPage() {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-white text-[#13243c] p-10">
         <p className="font-semibold text-sm">Dossier introuvable.</p>
-        <Link href="/dossiers" className="text-xs font-bold text-[#d9704f] hover:underline">← Retour aux dossiers</Link>
+        <Link href="/dossiers" className="inline-flex items-center gap-2 text-xs font-bold text-[#d9704f] hover:underline"><ArrowLeft size={15} /> Retour aux dossiers</Link>
       </div>
     );
   }
@@ -378,11 +379,11 @@ export default function AdminDossierVehiculeDetailPage() {
       {/* Left Main Content */}
       <div className="flex-1 min-w-0 pb-24 sm:pb-28 lg:pb-32">
         {/* Breadcrumb */}
-        <div className="font-semibold text-[12px] leading-none text-[#4c5058] mb-4">
-          <Link href="/dossiers" className="hover:text-[#13243c] transition-colors">
-            Dossiers véhicules
-          </Link>{' '}
-          <span className="text-[#13243c] font-bold">/ {vehicleLabel} · {plate}</span>
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <Link href="/dossiers" className="inline-flex h-9 items-center gap-2 rounded-[8px] border border-[#dcd7cb] bg-white px-3 text-[12px] font-bold text-[#13243c] transition hover:bg-[#f8f7f2]">
+            <ArrowLeft size={16} /> Retour aux dossiers
+          </Link>
+          <span className="font-semibold text-[12px] text-[#4c5058]">{vehicleLabel} · {plate}</span>
         </div>
 
         {/* Title Header */}
@@ -408,7 +409,7 @@ export default function AdminDossierVehiculeDetailPage() {
 
         {showDecisionHistory && (
           <div className="mb-7">
-            <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#4c5058] mb-3">
+            <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#d9704f] mb-3">
               Historique des motifs
             </div>
             <div className="flex flex-col gap-3">
@@ -452,8 +453,30 @@ export default function AdminDossierVehiculeDetailPage() {
           </div>
         )}
 
+        <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#d9704f] mb-3">
+          Informations du vendeur
+        </div>
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4 mb-7">
+          <div className="border border-[#eceadf] rounded-[10px] p-3.5 sm:p-4">
+            <div className="font-medium text-[11px] leading-none text-[#5a5e66] uppercase tracking-[0.04em] mb-1.5">Société</div>
+            <div className="font-semibold text-[14px] leading-tight text-[#13243c] break-words">{dossier.seller?.companyName || 'Non renseignée'}</div>
+          </div>
+          <div className="border border-[#eceadf] rounded-[10px] p-3.5 sm:p-4">
+            <div className="font-medium text-[11px] leading-none text-[#5a5e66] uppercase tracking-[0.04em] mb-1.5">Responsable</div>
+            <div className="font-semibold text-[14px] leading-tight text-[#13243c] break-words">{[dossier.seller?.firstName, dossier.seller?.lastName].filter(Boolean).join(' ') || 'Non renseigné'}</div>
+          </div>
+          <div className="border border-[#eceadf] rounded-[10px] p-3.5 sm:p-4">
+            <div className="font-medium text-[11px] leading-none text-[#5a5e66] uppercase tracking-[0.04em] mb-1.5">E-mail</div>
+            <div className="font-semibold text-[14px] leading-tight text-[#13243c] break-all">{dossier.seller?.email || 'Non renseigné'}</div>
+          </div>
+          <div className="border border-[#eceadf] rounded-[10px] p-3.5 sm:p-4">
+            <div className="font-medium text-[11px] leading-none text-[#5a5e66] uppercase tracking-[0.04em] mb-1.5">Téléphone</div>
+            <div className="font-semibold text-[14px] leading-tight text-[#13243c] break-words">{dossier.seller?.phone || 'Non renseigné'}</div>
+          </div>
+        </div>
+
         {/* Informations Véhicule Grid */}
-        <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#4c5058] mb-3">
+        <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#d9704f] mb-3">
           Informations véhicule
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mb-7">
@@ -469,7 +492,7 @@ export default function AdminDossierVehiculeDetailPage() {
           ))}
         </div>
 
-        <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#4c5058] mb-3">
+        <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#d9704f] mb-3">
           Informations complémentaires
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-7">
@@ -517,7 +540,7 @@ export default function AdminDossierVehiculeDetailPage() {
 
         {/* Photos Section */}
         <div className="flex items-center justify-between mb-3">
-          <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#4c5058]">
+          <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#d9704f]">
             Photos
           </div>
           {mediaDirty && (
@@ -551,7 +574,7 @@ export default function AdminDossierVehiculeDetailPage() {
 
         {/* Documents fournis */}
         <div className="flex items-center justify-between gap-3 mb-3">
-          <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#4c5058]">
+          <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#d9704f]">
             Documents fournis
           </div>
           {mediaDirty && (
@@ -579,7 +602,7 @@ export default function AdminDossierVehiculeDetailPage() {
       {isPendingDecision && (
         <div className="w-full xl:w-[360px] shrink-0 pb-24 sm:pb-28 lg:pb-32">
           <div className="border border-[#eceadf] rounded-[14px] p-6 bg-white sticky top-6 shadow-xs">
-          <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#4c5058] mb-4">
+          <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#d9704f] mb-4">
             Décision administrateur
           </div>
 
