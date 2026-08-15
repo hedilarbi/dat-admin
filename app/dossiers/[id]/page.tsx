@@ -11,7 +11,7 @@ import ConfirmModal from '../../components/ConfirmModal';
 import BlurZoneEditor from '../../components/vehicleDossier/BlurZoneEditor';
 import PhotoTile from '../../components/vehicleDossier/PhotoTile';
 import type { BlurZone, DossierDocument, DossierPhoto, VehicleDossier } from '../../lib/vehicleDossier';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Pencil, Save, X } from 'lucide-react';
 
 interface RefusalReason {
   key: string;
@@ -132,6 +132,9 @@ export default function AdminDossierVehiculeDetailPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [confirmApprove, setConfirmApprove] = useState(false);
+  const [editingDossier, setEditingDossier] = useState(false);
+  const [editForm, setEditForm] = useState<VehicleDossier | null>(null);
+  const [savingDossier, setSavingDossier] = useState(false);
 
   const applyDossier = (d: VehicleDossier) => {
     setDossier(d);
@@ -310,6 +313,39 @@ export default function AdminDossierVehiculeDetailPage() {
     }
   };
 
+  const startEditingDossier = () => {
+    if (!dossier) return;
+    setEditForm({ ...dossier, registrationCardMissingReasons: [...(dossier.registrationCardMissingReasons || [])] });
+    setEditingDossier(true);
+    setError('');
+    setMessage('');
+  };
+
+  const updateEditField = <K extends keyof VehicleDossier>(key: K, value: VehicleDossier[K]) => {
+    setEditForm((current) => current ? { ...current, [key]: value } : current);
+  };
+
+  const handleSaveDossier = async () => {
+    if (!dossier || !editForm) return;
+    setSavingDossier(true);
+    setError('');
+    setMessage('');
+    try {
+      const res = await apiRequest(`/admin/vehicle-dossiers/${dossier._id}`, {
+        method: 'PUT',
+        body: JSON.stringify(editForm),
+      });
+      applyDossier(res.dossier);
+      setEditForm(null);
+      setEditingDossier(false);
+      setMessage('Informations du dossier mises à jour.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Erreur lors de l'enregistrement du dossier.");
+    } finally {
+      setSavingDossier(false);
+    }
+  };
+
   if (loading) return <LoadingSpinner />;
 
   if (!dossier) {
@@ -331,25 +367,18 @@ export default function AdminDossierVehiculeDetailPage() {
     declaration_vol: 'Déclaration de vol',
     autre: 'Autre',
   };
-  const vehicleInformation = [
-    ['Immatriculation', dossier.registrationNumber],
-    ['Pays', dossier.registrationCountry],
-    ['Marque', dossier.brand],
-    ['Modèle', dossier.model],
-    ['Date de première circulation', dossier.firstRegistrationDate],
-    ['CO₂', dossier.co2 ? `${dossier.co2} g/km` : undefined],
-    ['Énergie', dossier.energyLabel],
-    ['Genre', dossier.vehicleGenre],
-    ['Puissance fiscale', dossier.fiscalPower],
-    ['Carrosserie', dossier.bodyType],
-    ['N° de série (VIN)', dossier.vin],
-    ['Boîte de vitesse', dossier.gearbox],
-    ['Nombre de passagers', dossier.passengerCount],
-    ['Nombre de portes', dossier.doorCount],
-    ['Couleur', dossier.color],
-    ['Kilométrage', dossier.mileage != null ? `${dossier.mileage.toLocaleString('fr-FR')} km` : undefined],
-    ['VRADE', dossier.vrade],
-    ['Procédure', dossier.procedure],
+  const displayedDossier = editingDossier && editForm ? editForm : dossier;
+  const vehicleInformation: Array<{ key: keyof VehicleDossier; label: string; type?: 'number' | 'procedure' | 'gearbox' | 'fuel' }> = [
+    { key: 'registrationNumber', label: 'Immatriculation' }, { key: 'registrationCountry', label: 'Pays' },
+    { key: 'brand', label: 'Marque' }, { key: 'model', label: 'Modèle' }, { key: 'year', label: 'Année', type: 'number' },
+    { key: 'firstRegistrationDate', label: 'Date de première circulation' }, { key: 'co2', label: 'CO₂' },
+    { key: 'energyLabel', label: 'Énergie' }, { key: 'fuelType', label: 'Type d’énergie', type: 'fuel' },
+    { key: 'vehicleGenre', label: 'Genre' }, { key: 'fiscalPower', label: 'Puissance fiscale' },
+    { key: 'bodyType', label: 'Carrosserie' }, { key: 'vin', label: 'N° de série (VIN)' },
+    { key: 'gearbox', label: 'Boîte de vitesse', type: 'gearbox' }, { key: 'passengerCount', label: 'Nombre de passagers' },
+    { key: 'doorCount', label: 'Nombre de portes' }, { key: 'color', label: 'Couleur' },
+    { key: 'mileage', label: 'Kilométrage', type: 'number' }, { key: 'vrade', label: 'VRADE' },
+    { key: 'procedure', label: 'Procédure', type: 'procedure' }, { key: 'engine', label: 'Moteur' },
   ];
 
   const getStatusMeta = (status: string) => {
@@ -396,12 +425,13 @@ export default function AdminDossierVehiculeDetailPage() {
               {vehicleLabel}
             </h1>
           </div>
-          <span
-            className="shrink-0 font-semibold text-[11px] leading-none px-3.5 py-2 rounded-full whitespace-nowrap"
-            style={{ background: statusMeta.bg, color: statusMeta.color }}
-          >
-            {statusMeta.label}
-          </span>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            {editingDossier ? <>
+              <button type="button" onClick={() => { setEditingDossier(false); setEditForm(null); }} disabled={savingDossier} className="inline-flex h-10 items-center gap-2 rounded-[8px] border border-[#dcd7cb] bg-white px-4 text-[11px] font-bold uppercase text-[#13243c] hover:bg-gray-50 disabled:opacity-50"><X size={15} /> Annuler</button>
+              <button type="button" onClick={handleSaveDossier} disabled={savingDossier} className="inline-flex h-10 items-center gap-2 rounded-[8px] bg-[#13243c] px-4 text-[11px] font-bold uppercase text-white hover:bg-[#1a3050] disabled:opacity-50">{savingDossier ? <Spinner /> : <Save size={15} />} Enregistrer</button>
+            </> : <button type="button" onClick={startEditingDossier} className="inline-flex h-10 items-center gap-2 rounded-[8px] border border-[#d9704f] bg-white px-4 text-[11px] font-bold uppercase text-[#d9704f] hover:bg-orange-50"><Pencil size={15} /> Modifier</button>}
+            <span className="font-semibold text-[11px] leading-none px-3.5 py-2 rounded-full whitespace-nowrap" style={{ background: statusMeta.bg, color: statusMeta.color }}>{statusMeta.label}</span>
+          </div>
         </div>
 
         {error && <Alert variant="error" className="mb-4">{error}</Alert>}
@@ -480,16 +510,21 @@ export default function AdminDossierVehiculeDetailPage() {
           Informations véhicule
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mb-7">
-          {vehicleInformation.map(([label, value]) => (
-            <div key={label} className="border border-[#eceadf] rounded-[10px] p-3.5 sm:p-4">
+          {vehicleInformation.map(({ key, label, type }) => {
+            const rawValue = displayedDossier[key];
+            const displayValue = key === 'mileage' && typeof rawValue === 'number' ? `${rawValue.toLocaleString('fr-FR')} km` : key === 'co2' && rawValue ? `${rawValue} g/km` : String(rawValue ?? '');
+            return <div key={key} className="border border-[#eceadf] rounded-[10px] p-3.5 sm:p-4">
               <div className="font-medium text-[11px] leading-none text-[#5a5e66] uppercase tracking-[0.04em] mb-1.5">
                 {label}
               </div>
-              <div className="font-semibold text-[14px] leading-tight text-[#13243c] break-words">
-                {value || 'Non renseigné'}
-              </div>
-            </div>
-          ))}
+              {editingDossier ? (
+                type === 'procedure' ? <select value={String(rawValue ?? '')} onChange={(event) => updateEditField('procedure', (event.target.value || undefined) as VehicleDossier['procedure'])} className="h-10 w-full rounded-[7px] border border-[#dcd7cb] bg-white px-2 text-sm"><option value="">Sélectionner</option>{['VEI', 'VE', 'TNR', 'RIV / VE', 'RIV'].map((item) => <option key={item}>{item}</option>)}</select>
+                : type === 'gearbox' ? <select value={String(rawValue ?? '')} onChange={(event) => updateEditField('gearbox', event.target.value)} className="h-10 w-full rounded-[7px] border border-[#dcd7cb] bg-white px-2 text-sm"><option value="">Sélectionner</option><option value="M">Manuelle</option><option value="A">Automatique</option></select>
+                : type === 'fuel' ? <select value={String(rawValue ?? '')} onChange={(event) => updateEditField('fuelType', (event.target.value || undefined) as VehicleDossier['fuelType'])} className="h-10 w-full rounded-[7px] border border-[#dcd7cb] bg-white px-2 text-sm"><option value="">Sélectionner</option>{[['essence', 'Essence'], ['diesel', 'Diesel'], ['hybride', 'Hybride'], ['electrique', 'Électrique'], ['gpl', 'GPL'], ['autre', 'Autre']].map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select>
+                : <input type={type === 'number' ? 'number' : 'text'} min={type === 'number' ? 0 : undefined} value={String(rawValue ?? '')} onChange={(event) => updateEditField(key, (type === 'number' ? (event.target.value === '' ? undefined : Number(event.target.value)) : event.target.value) as never)} className="h-10 w-full rounded-[7px] border border-[#dcd7cb] px-2 text-sm text-[#13243c] focus:border-[#13243c] focus:outline-none" />
+              ) : <div className="font-semibold text-[14px] leading-tight text-[#13243c] break-words">{displayValue || 'Non renseigné'}</div>}
+            </div>;
+          })}
         </div>
 
         <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#d9704f] mb-3">
@@ -498,43 +533,47 @@ export default function AdminDossierVehiculeDetailPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-7">
           <div className="border border-[#eceadf] rounded-[10px] p-4 sm:col-span-2">
             <div className="font-medium text-[11px] uppercase tracking-[0.04em] text-[#5a5e66] mb-1.5">Adresse de la voiture</div>
-            <div className="font-semibold text-[14px] text-[#13243c]">{dossier.vehicleAddress || 'Non renseignée'}</div>
+            {editingDossier ? <input value={editForm?.vehicleAddress || ''} onChange={(event) => updateEditField('vehicleAddress', event.target.value)} className="h-10 w-full rounded-[7px] border border-[#dcd7cb] px-3 text-sm" /> : <div className="font-semibold text-[14px] text-[#13243c]">{dossier.vehicleAddress || 'Non renseignée'}</div>}
           </div>
           <div className="border border-[#eceadf] rounded-[10px] p-4">
             <div className="font-medium text-[11px] uppercase tracking-[0.04em] text-[#5a5e66] mb-1.5">Carte grise disponible</div>
-            <div className="font-semibold text-[14px] text-[#13243c]">
-              {dossier.registrationCardAvailable === true ? 'Oui' : dossier.registrationCardAvailable === false ? 'Non' : 'Non renseigné'}
-            </div>
+            {editingDossier ? <select value={String(editForm?.registrationCardAvailable ?? '')} onChange={(event) => updateEditField('registrationCardAvailable', event.target.value === 'true')} className="h-10 w-full rounded-[7px] border border-[#dcd7cb] bg-white px-2 text-sm"><option value="true">Oui</option><option value="false">Non</option></select> : <div className="font-semibold text-[14px] text-[#13243c]">{dossier.registrationCardAvailable === true ? 'Oui' : dossier.registrationCardAvailable === false ? 'Non' : 'Non renseigné'}</div>}
           </div>
           <div className="border border-[#eceadf] rounded-[10px] p-4">
             <div className="font-medium text-[11px] uppercase tracking-[0.04em] text-[#5a5e66] mb-1.5">Prix de réserve / Session</div>
-            <div className="font-semibold text-[14px] text-[#13243c]">{reservePriceStr} · {sessionVis}</div>
+            {editingDossier ? <div className="flex items-center gap-2"><input type="number" min="0" value={editForm?.reservePrice ?? ''} onChange={(event) => updateEditField('reservePrice', event.target.value === '' ? undefined : Number(event.target.value))} className="h-10 min-w-0 flex-1 rounded-[7px] border border-[#dcd7cb] px-2 text-sm" /><span className="text-xs text-[#5a5e66]">€ · {sessionVis}</span></div> : <div className="font-semibold text-[14px] text-[#13243c]">{reservePriceStr} · {sessionVis}</div>}
           </div>
-          {dossier.registrationCardAvailable === false && (
+          {displayedDossier.registrationCardAvailable === false && (
             <>
               <div className="border border-[#eceadf] rounded-[10px] p-4">
                 <div className="font-medium text-[11px] uppercase tracking-[0.04em] text-[#5a5e66] mb-1.5">Motif d’absence de carte grise</div>
                 <div className="font-semibold text-[14px] text-[#13243c]">
-                  {dossier.registrationCardMissingReasons?.length
-                    ? dossier.registrationCardMissingReasons.map((reason) => missingReasonLabels[reason] || reason).join(', ')
-                    : 'Non renseigné'}
+                  {editingDossier ? <div className="flex flex-wrap gap-3">{(['declaration_perte', 'declaration_vol', 'autre'] as const).map((reason) => <label key={reason} className="flex items-center gap-2 text-xs"><input type="checkbox" checked={(editForm?.registrationCardMissingReasons || []).includes(reason)} onChange={() => updateEditField('registrationCardMissingReasons', (editForm?.registrationCardMissingReasons || []).includes(reason) ? (editForm?.registrationCardMissingReasons || []).filter((item) => item !== reason) : [...(editForm?.registrationCardMissingReasons || []), reason])} />{missingReasonLabels[reason]}</label>)}</div> : dossier.registrationCardMissingReasons?.length ? dossier.registrationCardMissingReasons.map((reason) => missingReasonLabels[reason] || reason).join(', ') : 'Non renseigné'}
                 </div>
               </div>
               <div className="border border-[#eceadf] rounded-[10px] p-4">
                 <div className="font-medium text-[11px] uppercase tracking-[0.04em] text-[#5a5e66] mb-1.5">Fiche d’identification disponible</div>
-                <div className="font-semibold text-[14px] text-[#13243c]">{dossier.identificationSheetAvailable ? 'Oui' : 'Non'}</div>
+                {editingDossier ? <select value={String(editForm?.identificationSheetAvailable ?? false)} onChange={(event) => updateEditField('identificationSheetAvailable', event.target.value === 'true')} className="h-10 w-full rounded-[7px] border border-[#dcd7cb] bg-white px-2 text-sm"><option value="true">Oui</option><option value="false">Non</option></select> : <div className="font-semibold text-[14px] text-[#13243c]">{dossier.identificationSheetAvailable ? 'Oui' : 'Non'}</div>}
               </div>
               <div className="border border-[#eceadf] rounded-[10px] p-4 sm:col-span-2">
                 <div className="font-medium text-[11px] uppercase tracking-[0.04em] text-[#5a5e66] mb-1.5">Numéro du livre de police</div>
-                <div className="font-semibold text-[14px] text-[#13243c]">{dossier.policeBookNumber || 'Non renseigné'}</div>
+                {editingDossier ? <input value={editForm?.policeBookNumber || ''} onChange={(event) => updateEditField('policeBookNumber', event.target.value)} className="h-10 w-full rounded-[7px] border border-[#dcd7cb] px-3 text-sm" /> : <div className="font-semibold text-[14px] text-[#13243c]">{dossier.policeBookNumber || 'Non renseigné'}</div>}
               </div>
             </>
           )}
+          {displayedDossier.registrationCardAvailable === true && (
+            <div className="border border-[#eceadf] rounded-[10px] p-4 sm:col-span-2">
+              <div className="font-medium text-[11px] uppercase tracking-[0.04em] text-[#5a5e66] mb-1.5">Numéro du livre de police</div>
+              {editingDossier ? <input value={editForm?.policeBookNumber || ''} onChange={(event) => updateEditField('policeBookNumber', event.target.value)} className="h-10 w-full rounded-[7px] border border-[#dcd7cb] px-3 text-sm" /> : <div className="font-semibold text-[14px] text-[#13243c]">{dossier.policeBookNumber || 'Non renseigné'}</div>}
+            </div>
+          )}
           <div className="border border-[#eceadf] rounded-[10px] p-4 sm:col-span-2">
             <div className="font-medium text-[11px] uppercase tracking-[0.04em] text-[#5a5e66] mb-2">Description du choc</div>
-            <div className="whitespace-pre-wrap text-[14px] leading-relaxed text-[#13243c]">
-              {dossier.description ? renderFormattedText(dossier.description) : 'Non renseignée'}
-            </div>
+            {editingDossier ? <textarea rows={5} value={editForm?.description || ''} onChange={(event) => updateEditField('description', event.target.value)} className="w-full rounded-[7px] border border-[#dcd7cb] p-3 text-sm" /> : <div className="whitespace-pre-wrap text-[14px] leading-relaxed text-[#13243c]">{dossier.description ? renderFormattedText(dossier.description) : 'Non renseignée'}</div>}
+          </div>
+          <div className="border border-[#eceadf] rounded-[10px] p-4 sm:col-span-2">
+            <div className="font-medium text-[11px] uppercase tracking-[0.04em] text-[#5a5e66] mb-2">Détails de l’état</div>
+            {editingDossier ? <textarea rows={4} value={editForm?.conditionDetails || ''} onChange={(event) => updateEditField('conditionDetails', event.target.value)} className="w-full rounded-[7px] border border-[#dcd7cb] p-3 text-sm" /> : <div className="whitespace-pre-wrap text-[14px] leading-relaxed text-[#13243c]">{dossier.conditionDetails || 'Non renseigné'}</div>}
           </div>
         </div>
 

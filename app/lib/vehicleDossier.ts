@@ -94,6 +94,7 @@ export interface VehicleDossier {
   identificationSheetAvailable?: boolean;
   policeBookNumber?: string;
   description?: string;
+  conditionDetails?: string;
   photos: DossierPhoto[];
   expertReport?: DossierDocument;
   additionalDocuments: DossierDocument[];
