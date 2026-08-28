@@ -30,7 +30,9 @@ interface CertificateRejection {
   url?: string;
   reason: string;
   comment?: string;
-  rejectedAt: string;
+  rejectedAt?: string;
+  rejectedBy?: string;
+  createdAt: string;
 }
 
 interface Sale {
@@ -50,7 +52,7 @@ interface Sale {
   documentsDelivery: 'main_propre' | 'poste' | null;
   commissionPayment?: { provider?: string; mode?: string; status?: string; amount?: number; currency?: string; paymentIntentId?: string; checkoutSessionId?: string; initiatedAt?: string };
   transferConfirmedAt: string | null;
-  certificate?: { url?: string; generatedAt?: string; sellerSignedUrl?: string; sellerSignedAt?: string; signedUrl?: string; signedAt?: string; validatedAt?: string; rejections?: CertificateRejection[] };
+  certificate?: { url?: string; generatedAt?: string; sellerSignedUrl?: string; sellerSignedAt?: string; signedUrl?: string; signedAt?: string; validatedAt?: string; buyerValidatedAt?: string; rejections?: CertificateRejection[] };
   handover?: { declarationUrl?: string; generatedAt?: string; otpAttempts?: number; confirmedAt?: string };
   vehicle: VehicleDossier & { lotNumber?: number | null };
   winner: Party | null;
