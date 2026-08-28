@@ -37,7 +37,7 @@ interface CertificateRejection {
 
 interface Sale {
   _id: string;
-  status: 'en_cours' | 'cloturee' | 'sans_gagnant' | 'annulee';
+  status: 'en_cours' | 'cloturee' | 'sans_gagnant' | 'annulee' | 'en_attente_confirmation';
   currentStep: number;
   currentStepStartedAt: string | null;
   currentStepDueAt: string | null;
