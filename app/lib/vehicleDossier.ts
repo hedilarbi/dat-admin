@@ -100,6 +100,10 @@ export interface VehicleDossier {
   additionalDocuments: DossierDocument[];
   reservePrice?: number;
   session?: string;
+  /** Nombre de fois où le véhicule a été mis en vente dans une session */
+  listingCount?: number;
+  /** Numéro de lot attribué à la publication dans une session (« Lot #12311 »). */
+  lotNumber?: number | null;
   status: DossierStatus;
   submittedAt?: string;
   refusals: DossierRefusal[];

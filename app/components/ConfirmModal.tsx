@@ -11,6 +11,8 @@ interface ConfirmModalProps {
   danger?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  /** Contenu optionnel inséré sous le message : options à cocher, précisions, etc. */
+  children?: React.ReactNode;
 }
 
 export default function ConfirmModal({
@@ -22,6 +24,7 @@ export default function ConfirmModal({
   danger = false,
   onConfirm,
   onCancel,
+  children,
 }: ConfirmModalProps) {
   if (!open) return null;
 
@@ -32,12 +35,13 @@ export default function ConfirmModal({
         onClick={e => e.stopPropagation()}
       >
         <h3 className="text-lg font-bold text-[#13243c] mb-2">{title}</h3>
-        <p className="text-sm text-[#5a5e66] mb-6">{message}</p>
+        <p className={`text-sm text-[#5a5e66] ${children ? 'mb-2' : 'mb-6'}`}>{message}</p>
+        {children && <div className="mb-6">{children}</div>}
         <div className="flex justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-[8px] text-xs uppercase cursor-pointer transition"
+            className="btn btn-secondary"
           >
             {cancelLabel}
           </button>

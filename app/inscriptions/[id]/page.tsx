@@ -21,8 +21,9 @@ interface UserProfile {
   phone: string;
   role: 'admin' | 'vendeur' | 'acheteur';
   status: 'brouillon' | 'soumis' | 'en_attente_validation' | 'refuse' | 'correction_demandee' | 'valide' | 'suspendu' | 'bloque';
-  kbisNumber?: string;
+  siret?: string;
   kbisUrl?: string;
+  stampUrl?: string;
   cinRectoUrl?: string;
   cinVersoUrl?: string;
   vhuNumber?: string;
@@ -254,8 +255,8 @@ export default function InscriptionDetailPage() {
             <div className="font-semibold text-sm text-[#13243c] mt-1.5">{selectedUser.activityType}</div>
           </div>
           <div className="border border-[#eceadf] bg-white rounded-[10px] p-[14px_16px]">
-            <div className="font-medium text-[11px] text-[#5a5e66] uppercase tracking-[0.04em]">Numéro SIREN</div>
-            <div className="font-semibold text-sm text-[#13243c] mt-1.5">{selectedUser.kbisNumber || 'Non renseigné'}</div>
+            <div className="font-medium text-[11px] text-[#5a5e66] uppercase tracking-[0.04em]">Numéro SIRET</div>
+            <div className="font-semibold text-sm text-[#13243c] mt-1.5">{selectedUser.siret || 'Non renseigné'}</div>
           </div>
           <div className="border border-[#eceadf] bg-white rounded-[10px] p-[14px_16px]">
             <div className="font-medium text-[11px] text-[#5a5e66] uppercase tracking-[0.04em]">Adresse</div>
@@ -306,6 +307,14 @@ export default function InscriptionDetailPage() {
               url={selectedUser.cinVersoUrl}
             />
           )}
+          {selectedUser.stampUrl && (
+            <DocumentReceivedCard
+              fileType="IMG"
+              title="Tampon de l'entreprise"
+              description="Fourni à titre facultatif, détouré sur fond transparent"
+              url={selectedUser.stampUrl}
+            />
+          )}
           {selectedUser.role === 'vendeur' && selectedUser.bankInfo?.ribUrl && (
             <DocumentReceivedCard
               fileType="PDF"
@@ -314,7 +323,7 @@ export default function InscriptionDetailPage() {
               url={selectedUser.bankInfo.ribUrl}
             />
           )}
-          {!selectedUser.kbisUrl && !selectedUser.cinRectoUrl && !selectedUser.cinVersoUrl && !selectedUser.bankInfo?.ribUrl && (
+          {!selectedUser.kbisUrl && !selectedUser.cinRectoUrl && !selectedUser.cinVersoUrl && !selectedUser.stampUrl && !selectedUser.bankInfo?.ribUrl && (
             <div className="text-xs text-gray-400 italic p-4 bg-white border rounded-[10px]">Aucun document joint pour le moment.</div>
           )}
         </div>

@@ -388,7 +388,7 @@ export default function AdminSupportPage() {
                     {!replyFile && !uploadingAttachment && <span className="font-semibold">Joindre un fichier</span>}
                     <input type="file" onChange={handleFileUpload} className="hidden" disabled={uploadingAttachment} />
                   </label>
-                  <button type="submit" disabled={sendingReply || uploadingAttachment} className="px-5 py-2 bg-[#13243c] hover:bg-slate-800 text-white font-bold rounded-[8px] text-xs uppercase transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 shrink-0">
+                  <button type="submit" disabled={sendingReply || uploadingAttachment} className="btn btn-primary disabled:opacity-50 gap-2 shrink-0">
                     {sendingReply && <Spinner />}
                     Envoyer au client
                   </button>
@@ -412,7 +412,7 @@ export default function AdminSupportPage() {
                       ? `Modifiée par ${selectedTicket.internalNotes[0].admin?.firstName || ''} ${selectedTicket.internalNotes[0].admin?.lastName || ''} le ${new Date(selectedTicket.internalNotes[0].createdAt).toLocaleString('fr-FR')}`
                       : 'Aucune note pour ce dossier'}
                   </span>
-                  <button type="submit" disabled={savingNote} className="px-4 py-1.5 bg-[#b3893f] hover:bg-[#9a7332] text-white font-bold rounded-[8px] text-xs uppercase cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2">
+                  <button type="submit" disabled={savingNote} className="btn btn-primary disabled:opacity-50 gap-2">
                     {savingNote && <Spinner />}
                     {selectedTicket.internalNotes?.[0] ? 'Modifier la note' : '+ Ajouter la note'}
                   </button>

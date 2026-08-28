@@ -70,12 +70,13 @@ interface BadgeProps {
 }
 
 export function Badge({ style, className = '' }: BadgeProps) {
+  const safeStyle = style || { label: '—', color: '#ffffff', bg: '#6b7280' };
   return (
     <span
       className={`font-semibold text-[11px] px-3 py-1 rounded-full inline-block ${className}`}
-      style={{ background: style.bg, color: style.color }}
+      style={{ background: safeStyle.bg, color: safeStyle.color }}
     >
-      {style.label}
+      {safeStyle.label}
     </span>
   );
 }

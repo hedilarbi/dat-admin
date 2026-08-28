@@ -58,7 +58,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       setUser(null);
       // Only redirect to login if we are not on login page
-      if (typeof window !== 'undefined' && window.location.pathname !== '/login' && window.location.pathname !== '/') {
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
         router.push('/login');
       }
     } finally {
@@ -107,12 +107,11 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [notificationsModalOpen, setNotificationsModalOpen] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
   const [inscriptionsOpen, setInscriptionsOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const isAuthPage = pathname === '/login' || pathname === '/';
+  const isAuthPage = pathname === '/login';
   const isConfigSection = pathname.startsWith('/configuration');
   const isInscriptionsSection = pathname.startsWith('/inscriptions') || pathname.startsWith('/inscription/');
 
@@ -137,10 +136,17 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
 
   const handleNotificationClick = (notification: AdminNotification) => {
     markNotificationAsRead(notification._id);
-    if (notification.type === 'ticket_created' && notification.metadata?.ticketId) {
-      setNotificationsOpen(false);
-      setNotificationsModalOpen(false);
-      router.push(`/support?ticketId=${notification.metadata.ticketId}`);
+    setNotificationsOpen(false);
+    
+    const { type, metadata } = notification;
+    if (type === 'registration_submitted' && metadata?.userId && metadata?.role) {
+      router.push(`/inscription/${metadata.role}/${metadata.userId}`);
+    } else if (type === 'vehicle_dossier_submitted' && metadata?.dossierId) {
+      router.push(`/dossiers/${metadata.dossierId}`);
+    } else if (type === 'ticket_created' && metadata?.ticketId) {
+      router.push(`/support?ticketId=${metadata.ticketId}`);
+    } else if ((type === 'late_payment_alert' || type === 'certificate_rejected') && metadata?.saleId) {
+      router.push(`/ventes/${metadata.saleId}`);
     }
   };
 
@@ -249,7 +255,7 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
             </button>
           </div>
           <nav className="flex flex-col gap-1">
-            <Link href="/dashboard" className={`flex items-center px-[14px] py-[12px] rounded-[9px] font-[500] text-[14px] transition ${pathname === '/dashboard' ? 'bg-[#1c3050] text-white font-semibold' : 'text-[#9fb0c9] hover:bg-[#1a2b44]'}`}>
+            <Link href="/" className={`flex items-center px-[14px] py-[12px] rounded-[9px] font-[500] text-[14px] transition ${pathname === '/' ? 'bg-[#1c3050] text-white font-semibold' : 'text-[#9fb0c9] hover:bg-[#1a2b44]'}`}>
               Tableau de bord
             </Link>
             <button
@@ -273,8 +279,14 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
             <Link href="/dossiers" className={`flex items-center px-[14px] py-[12px] rounded-[9px] font-[500] text-[14px] transition ${pathname === '/dossiers' ? 'bg-[#1c3050] text-white font-semibold' : 'text-[#9fb0c9] hover:bg-[#1a2b44]'}`}>
               Dossiers véhicules
             </Link>
+            <Link href="/ventes" className={`flex items-center px-[14px] py-[12px] rounded-[9px] font-[500] text-[14px] transition ${pathname === '/ventes' ? 'bg-[#1c3050] text-white font-semibold' : 'text-[#9fb0c9] hover:bg-[#1a2b44]'}`}>
+              Ventes véhicules
+            </Link>
             <Link href="/sessions" className={`flex items-center px-[14px] py-[12px] rounded-[9px] font-[500] text-[14px] transition ${pathname === '/sessions' ? 'bg-[#1c3050] text-white font-semibold' : 'text-[#9fb0c9] hover:bg-[#1a2b44]'}`}>
               Sessions
+            </Link>
+            <Link href="/paiements" className={`flex items-center px-[14px] py-[12px] rounded-[9px] font-[500] text-[14px] transition ${pathname === '/paiements' ? 'bg-[#1c3050] text-white font-semibold' : 'text-[#9fb0c9] hover:bg-[#1a2b44]'}`}>
+              Paiements
             </Link>
             <Link href="/support" className={`flex items-center px-[14px] py-[12px] rounded-[9px] font-[500] text-[14px] transition ${pathname === '/support' ? 'bg-[#1c3050] text-white font-semibold' : 'text-[#9fb0c9] hover:bg-[#1a2b44]'}`}>
               Support
@@ -290,8 +302,14 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
             </button>
             {(configOpen || isConfigSection) && (
               <div className="pl-3 flex flex-col gap-1">
+                <Link href="/configuration/general" className={`flex items-center px-[14px] py-[10px] rounded-[9px] font-[500] text-[13px] transition ${pathname === '/configuration/general' ? 'bg-[#1c3050] text-white font-semibold' : 'text-[#9fb0c9] hover:bg-[#1a2b44]'}`}>
+                  Configuration générale
+                </Link>
                 <Link href="/configuration/messages" className={`flex items-center px-[14px] py-[10px] rounded-[9px] font-[500] text-[13px] transition ${pathname === '/configuration/messages' ? 'bg-[#1c3050] text-white font-semibold' : 'text-[#9fb0c9] hover:bg-[#1a2b44]'}`}>
                   Messages
+                </Link>
+                <Link href="/configuration/commissions" className={`flex items-center px-[14px] py-[10px] rounded-[9px] font-[500] text-[13px] transition ${pathname === '/configuration/commissions' ? 'bg-[#1c3050] text-white font-semibold' : 'text-[#9fb0c9] hover:bg-[#1a2b44]'}`}>
+                  Commissions
                 </Link>
               </div>
             )}
@@ -364,7 +382,7 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
                   <button
                     type="button"
                     onClick={() => {
-                      setNotificationsModalOpen(true);
+                      router.push('/notifications');
                       setNotificationsOpen(false);
                     }}
                     className="w-full h-11 text-[12px] font-bold text-[#13243c] uppercase tracking-[0.04em] hover:bg-[#f8f7f2]"
@@ -402,65 +420,6 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
           {children}
         </main>
       </div>
-
-      {notificationsModalOpen && (
-        <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-3 sm:p-6">
-          <div className="w-full max-w-[720px] max-h-[82vh] bg-white shadow-[0_20px_60px_rgba(0,0,0,0.24)] flex flex-col">
-            <div className="min-h-[64px] bg-[#13243c] flex items-center justify-between gap-3 px-4 sm:px-6 py-3 text-white shrink-0">
-              <div>
-                <div className="text-[11px] font-semibold text-[#8ea0bd] uppercase tracking-[0.16em]">Centre de notifications</div>
-                <div className="font-bold">Notifications admin</div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setNotificationsModalOpen(false)}
-                className="h-9 w-9 rounded-[8px] border border-[#2c4266] flex items-center justify-center hover:bg-[#1c3050]"
-                aria-label="Fermer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="p-4 border-b border-[#efece3] flex justify-between items-center">
-              <span className="text-sm font-semibold text-[#13243c]">{unreadCount} notification(s) non lue(s)</span>
-              <button type="button" onClick={markAllNotificationsAsRead} className="text-[12px] font-bold text-[#d9704f] hover:underline">
-                Tout marquer comme lu
-              </button>
-            </div>
-
-            <div className="overflow-y-auto">
-              {notifications.length === 0 ? (
-                <div className="p-10 text-center text-sm text-[#4c5058]">Aucune notification admin pour le moment.</div>
-              ) : (
-                notifications.map(notification => (
-                  <button
-                    key={notification._id}
-                    type="button"
-                    onClick={() => handleNotificationClick(notification)}
-                    className={`w-full p-5 border-b border-[#efece3] text-left hover:bg-[#fbfaf7] transition ${notification.readAt ? 'bg-white' : 'bg-[#fff7f1]'}`}
-                  >
-                    <div className="flex flex-col sm:flex-row sm:justify-between gap-3 sm:gap-4">
-                      <div>
-                        <div className="font-bold text-[#13243c]">{notification.title}</div>
-                        <div className="text-sm text-[#5a5e66] mt-1">{notification.message}</div>
-                        {notification.createdByUser && (
-                          <div className="text-[12px] text-[#4c5058] mt-2">
-                            {notification.createdByUser.companyName} · {notification.createdByUser.email}
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-right shrink-0">
-                        {!notification.readAt && <div className="inline-flex px-2 py-1 rounded-full bg-[#fdece4] text-[#d9704f] text-[11px] font-bold mb-2">Nouveau</div>}
-                        <div className="text-[11px] text-[#5a5e66]">{new Date(notification.createdAt).toLocaleString('fr-FR')}</div>
-                      </div>
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

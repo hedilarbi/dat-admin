@@ -6,7 +6,6 @@ import { apiRequest } from '../api';
 import PageHeader from '../components/PageHeader';
 import Alert from '../components/Alert';
 import SkeletonRows from '../components/SkeletonRows';
-import FilterPills from '../components/FilterPills';
 import { Badge, getInscriptionStatusBadge } from '../components/StatusBadge';
 import StatCard from '../components/StatCard';
 
@@ -40,6 +39,24 @@ const EMPTY_COUNTS: UserCounts = { all: 0, acheteur: 0, vendeur: 0, enAttente: 0
 
 const PAGE_LIMIT = 20;
 
+type ColumnKey = 'companyName' | 'activityType' | 'city' | 'email' | 'phone' | 'submittedAt' | 'status';
+
+interface TableColumn {
+  key: ColumnKey;
+  label: string;
+  width: number;
+}
+
+const TABLE_COLUMNS: TableColumn[] = [
+  { key: 'companyName', label: 'Société', width: 180 },
+  { key: 'activityType', label: 'Activité', width: 150 },
+  { key: 'city', label: 'Ville', width: 130 },
+  { key: 'email', label: 'Email', width: 200 },
+  { key: 'phone', label: 'Téléphone', width: 130 },
+  { key: 'submittedAt', label: 'Inscrit le', width: 130 },
+  { key: 'status', label: 'Statut', width: 150 },
+];
+
 interface InscriptionsRoleListProps {
   role: 'acheteur' | 'vendeur';
   title: string;
@@ -54,48 +71,64 @@ export default function InscriptionsRoleList({ role, title }: InscriptionsRoleLi
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  const [userStatusFilter, setUserStatusFilter] = useState<string>('all');
-  const [userSearch, setUserSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [cityFilter, setCityFilter] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [draftFilters, setDraftFilters] = useState<Partial<Record<ColumnKey, string>>>({});
+  const [appliedFilters, setAppliedFilters] = useState<Partial<Record<ColumnKey, string>>>({});
 
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState('');
 
-  const statusFilters = [
-    { value: 'all', label: `Toutes ${total}` },
-    { value: 'attente', label: `En attente ${counts.enAttente}` },
-    { value: 'correction', label: `Correction demandée ${counts.correction}` },
-    { value: 'valide', label: `Validées ${counts.valide}` },
-    { value: 'refuse', label: `Refusées ${counts.refuse}` },
-  ];
-
-  // Debounce the free-text search before it hits the API, resetting back to page 1
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(userSearch.trim());
-      setPage(1);
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [userSearch]);
-
-  // Un changement de rôle (navigation entre /inscriptions/acheteur et /inscriptions/vendeur)
-  // doit repartir de la page 1 et du filtre de statut par défaut.
   useEffect(() => {
     setPage(1);
-    setUserStatusFilter('all');
-    setUserSearch('');
-    setCityFilter('');
-    setDateFrom('');
-    setDateTo('');
+    setDraftFilters({});
+    setAppliedFilters({});
   }, [role]);
 
-  const handleStatusFilterChange = (value: string) => {
-    setUserStatusFilter(value);
+  const updateDraftFilter = (key: ColumnKey, value: string) => setDraftFilters((current) => ({ ...current, [key]: value }));
+  const hasAppliedFilters = Object.values(appliedFilters).some(Boolean);
+
+  const applyTableFilters = () => {
+    const cleaned = Object.fromEntries(Object.entries(draftFilters).filter(([, value]) => value?.trim())) as Partial<Record<ColumnKey, string>>;
+    setAppliedFilters(cleaned);
     setPage(1);
+  };
+
+  const resetTableFilters = () => {
+    setDraftFilters({});
+    setAppliedFilters({});
+    setPage(1);
+  };
+
+  const renderFilterInput = (column: TableColumn) => {
+    const value = draftFilters[column.key] || '';
+    const className = "mt-2 h-9 w-full rounded-[7px] border border-[#dcd7cb] bg-white px-2 text-[12px] font-normal normal-case tracking-normal text-[#13243c] focus:border-[#13243c] focus:outline-none";
+    if (column.key === 'status') {
+      return (
+        <select aria-label={`Filtrer par ${column.label}`} value={value} onChange={(e) => updateDraftFilter(column.key, e.target.value)} className={className}>
+          <option value="">Tous</option>
+          <option value="attente">En attente</option>
+          <option value="correction">Correction demandée</option>
+          <option value="valide">Validé</option>
+          <option value="refuse">Refusé</option>
+        </select>
+      );
+    }
+    const type = column.key === 'submittedAt' ? 'date' : 'text';
+    return (
+      <input aria-label={`Filtrer par ${column.label}`} type={type} value={value} onChange={(e) => updateDraftFilter(column.key, e.target.value)} placeholder={type === 'text' ? 'Filtrer…' : undefined} className={className} />
+    );
+  };
+
+  const renderCell = (row: UserProfile, key: ColumnKey) => {
+    switch (key) {
+      case 'companyName': return row.companyName || 'Sans nom';
+      case 'activityType': return row.activityType || 'Non spécifié';
+      case 'city': return row.address?.city || '—';
+      case 'email': return row.email || '—';
+      case 'phone': return row.phone || '—';
+      case 'submittedAt': return new Date(row.createdAt).toLocaleDateString('fr-FR');
+      case 'status': return <Badge style={getInscriptionStatusBadge(row.status)} className="py-1.5" />;
+    }
   };
 
   useEffect(() => {
@@ -104,11 +137,7 @@ export default function InscriptionsRoleList({ role, title }: InscriptionsRoleLi
       try {
         const params = new URLSearchParams();
         params.set('role', role);
-        if (userStatusFilter !== 'all') params.set('status', userStatusFilter);
-        if (debouncedSearch) params.set('search', debouncedSearch);
-        if (cityFilter.trim()) params.set('city', cityFilter.trim());
-        if (dateFrom) params.set('dateFrom', dateFrom);
-        if (dateTo) params.set('dateTo', dateTo);
+        if (Object.keys(appliedFilters).length > 0) params.set('columnFilters', JSON.stringify(appliedFilters));
         params.set('page', String(page));
         params.set('limit', String(PAGE_LIMIT));
 
@@ -127,7 +156,9 @@ export default function InscriptionsRoleList({ role, title }: InscriptionsRoleLi
     };
 
     fetchUsers();
-  }, [role, userStatusFilter, debouncedSearch, cityFilter, dateFrom, dateTo, page, router]);
+  }, [role, appliedFilters, page, router]);
+
+  const tableMinWidth = TABLE_COLUMNS.reduce((sum, col) => sum + col.width, 0) + 130;
 
   if (loading) {
     return (
@@ -144,105 +175,67 @@ export default function InscriptionsRoleList({ role, title }: InscriptionsRoleLi
       <PageHeader
         eyebrow="Validation des comptes professionnels"
         title={title}
-        action={
-          <input
-            type="text"
-            placeholder="Rechercher société, email, responsable…"
-            value={userSearch}
-            onChange={e => setUserSearch(e.target.value)}
-            className="w-full sm:w-[280px] h-[42px] border border-[#dcd7cb] rounded-[9px] px-4 text-xs text-[#1a2230] bg-white focus:outline-none focus:ring-1 focus:ring-[#13243c]"
-          />
-        }
       />
 
       <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <StatCard label="Total utilisateurs" value={counts.roleTotal} bg="#eef1f5" labelColor="#5a5e66" />
-        <StatCard label="Nouveaux utilisateurs ce mois" value={counts.newThisMonth} bg="#e9f4ee" labelColor="#2f6f4f" />
-      </div>
-
-      <div className="mb-5 rounded-[12px] border border-[#eceadf] bg-white p-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[1.2fr_1fr_1fr_auto] lg:items-end">
-          <label>
-            <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.05em] text-[#4c5058]">Ville</span>
-            <input value={cityFilter} onChange={(e) => { setCityFilter(e.target.value); setPage(1); }} placeholder="Filtrer par ville" className="h-11 w-full rounded-[8px] border border-[#dcd7cb] bg-white px-3 text-sm" />
-          </label>
-          <label>
-            <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.05em] text-[#4c5058]">Inscrit du</span>
-            <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} className="h-11 w-full rounded-[8px] border border-[#dcd7cb] bg-white px-3 text-sm" />
-          </label>
-          <label>
-            <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.05em] text-[#4c5058]">Inscrit au</span>
-            <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} className="h-11 w-full rounded-[8px] border border-[#dcd7cb] bg-white px-3 text-sm" />
-          </label>
-          <button type="button" onClick={() => { setCityFilter(''); setDateFrom(''); setDateTo(''); setPage(1); }} className="h-11 rounded-[8px] border border-[#dcd7cb] bg-white px-4 text-xs font-bold uppercase text-[#13243c]">Réinitialiser</button>
-        </div>
-      </div>
-
-      <div className="mb-5">
-        <FilterPills
-          options={statusFilters}
-          value={userStatusFilter}
-          onChange={handleStatusFilterChange}
-          baseClassName="font-bold text-xs px-4 py-2 rounded-full transition"
-          activeClassName="bg-[#d9704f] text-white"
-          inactiveClassName="bg-white border border-[#e2ddd1] text-[#4c5058] hover:bg-gray-50"
-        />
+        <StatCard label="Total utilisateurs" value={counts.roleTotal} bg="#2563eb" labelColor="#bfdbfe" valueColor="#ffffff" />
+        <StatCard label="Nouveaux utilisateurs ce mois" value={counts.newThisMonth} bg="#16a34a" labelColor="#bbf7d0" valueColor="#ffffff" />
       </div>
 
       {error && <Alert variant="error" className="mb-4">{error}</Alert>}
 
-      {/* Table Box */}
-      <div className={`border border-[#eceadf] bg-white rounded-[12px] overflow-hidden shadow-sm transition-opacity ${fetching ? 'opacity-60' : ''}`}>
-        <div className="hidden md:grid grid-cols-6 gap-4 p-[14px_20px] bg-[#f8f7f2] font-semibold text-[11px] uppercase tracking-[0.05em] text-[#4c5058] border-b border-[#efece3]">
-          <div className="col-span-2">Société</div>
-          <div>Activité / Ville</div>
-          <div>Contact</div>
-          <div>Soumis le</div>
-          <div className="text-right">Statut</div>
-        </div>
-
-        {users.length === 0 ? (
-          <div className="p-10 text-center text-gray-400 text-sm italic">
-            Aucun dossier d&apos;inscription ne correspond aux critères.
-          </div>
-        ) : (
-          users.map((row, index) => (
-            <div
-              key={row._id}
-              onClick={() => router.push(`/inscription/${role}/${row._id}`)}
-              className={`grid grid-cols-1 md:grid-cols-6 gap-3 md:gap-4 p-[16px_20px] border-b border-[#e5e0d5] items-center font-medium text-[13px] text-[#1a2230] hover:bg-[#eee9de] cursor-pointer transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-[#f8f7f2]'}`}
-            >
-              <div className="col-span-2">
-                <div className="font-bold text-sm text-[#13243c]">
-                  {row.companyName || 'Sans nom'}
+      <div className={`w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-[12px] border border-[#eceadf] bg-white shadow-sm transition-opacity ${fetching ? 'opacity-60' : ''}`}>
+        <table className="w-full table-fixed border-collapse" style={{ minWidth: tableMinWidth }}>
+          <colgroup>
+            {TABLE_COLUMNS.map((column) => <col key={column.key} style={{ width: column.width }} />)}
+            <col style={{ width: 130 }} />
+          </colgroup>
+          <thead>
+            <tr className="border-b border-[#efece3] bg-[#f8f7f2] text-left text-[11px] font-semibold uppercase tracking-[0.05em] text-[#4c5058] align-top">
+              {TABLE_COLUMNS.map((column) => (
+                <th key={column.key} className="px-3 py-[14px]">
+                  <div className="h-4 whitespace-nowrap">{column.label}</div>
+                  {renderFilterInput(column)}
+                </th>
+              ))}
+              <th className="px-3 py-[14px] text-right">
+                <div className="h-4" aria-hidden="true" />
+                <div className="mt-2 flex w-full flex-col items-stretch gap-1.5">
+                  <button type="button" onClick={applyTableFilters} className="h-9 rounded-[7px] bg-[#13243c] px-3 text-[12px] font-bold uppercase text-white hover:bg-[#1a3050] transition">
+                    Rechercher
+                  </button>
+                  {hasAppliedFilters && (
+                    <button type="button" onClick={resetTableFilters} className="h-9 rounded-[7px] border border-[#dcd7cb] bg-white px-3 text-[12px] font-bold uppercase text-[#13243c] hover:bg-[#fbfaf7] transition">
+                      Réinitialiser
+                    </button>
+                  )}
                 </div>
-                <div className="text-xs text-gray-500 mt-0.5">{row.firstName} {row.lastName}</div>
-              </div>
-
-              <div className="text-gray-600">
-                <div className="font-medium">{row.activityType || 'Non spécifié'}</div>
-                <div className="text-xs text-gray-400">{row.address?.city || 'Ville inconnue'}</div>
-              </div>
-
-              <div className="text-xs text-gray-600 truncate">
-                <div>{row.email}</div>
-                <div className="text-gray-400">{row.phone}</div>
-              </div>
-
-              <div className="text-xs text-gray-500">
-                {new Date(row.createdAt).toLocaleDateString('fr-FR')}
-              </div>
-
-              <div className="flex items-center justify-between md:justify-end gap-3">
-                <Badge style={getInscriptionStatusBadge(row.status)} />
-                <span className="font-bold text-xs text-[#d9704f] hover:underline">Voir →</span>
-              </div>
-            </div>
-          ))
-        )}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.length === 0 ? (
+              <tr>
+                <td colSpan={TABLE_COLUMNS.length + 1} className="p-10 text-center text-sm font-medium text-[#5a5e66]">
+                  Aucun dossier d&apos;inscription ne correspond aux critères.
+                </td>
+              </tr>
+            ) : users.map((row) => (
+              <tr key={row._id} onClick={() => router.push(`/inscription/${role}/${row._id}`)} className="cursor-pointer border-t border-[#efece3] text-[13px] font-medium leading-snug text-[#1a2230] transition first:border-t-0 hover:bg-[#fcfbf9]">
+                {TABLE_COLUMNS.map((column) => (
+                  <td key={column.key} className="px-5 py-4">
+                    <div className="truncate">{renderCell(row, column.key)}</div>
+                  </td>
+                ))}
+                <td className="px-5 py-4 text-right text-[12px] font-semibold text-[#d9704f] whitespace-nowrap hover:underline">
+                  Voir →
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      {/* Pagination */}
       {total > 0 && (
         <div className="flex items-center justify-between mt-5 text-xs text-[#4c5058]">
           <div>

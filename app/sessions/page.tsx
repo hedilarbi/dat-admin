@@ -6,8 +6,17 @@ import Alert from '../components/Alert';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Spinner from '../components/Spinner';
 import ConfirmModal from '../components/ConfirmModal';
+import CommissionTiersEditor from '../components/CommissionTiersEditor';
 import type { VehicleDossier } from '../lib/vehicleDossier';
-import { Search, Trash2 } from 'lucide-react';
+import {
+  CommissionTier,
+  CommissionTierDraft,
+  SessionCommission,
+  draftToTier,
+  tierToDraft,
+  validateDrafts,
+} from '../lib/commission';
+import { Gavel, Search, Trash2 } from 'lucide-react';
 
 interface SessionData {
   _id: string;
@@ -19,6 +28,7 @@ interface SessionData {
   status: 'open' | 'upcoming' | 'closed' | 'annulee' | 'programmee' | 'active' | 'cloturee';
   vehicleCount: number;
   vehicles?: VehicleDossier[];
+  commission?: SessionCommission;
   date?: string;
 }
 
@@ -27,7 +37,6 @@ interface SessionConfigData {
   startTime: string;
   durationHours: number;
   autoGenerateWeeks: number;
-  autoAssignVehicles: boolean;
 }
 
 const WEEKDAY_NAMES = [
@@ -57,6 +66,35 @@ function VehicleCover({ vehicle }: { vehicle: VehicleDossier }) {
   );
 }
 
+/**
+ * Compteur de mises en vente d'un véhicule, mis en regard du nombre de tentatives prévu
+ * dans la configuration générale. Purement informatif : l'admin peut affecter au-delà.
+ */
+function ListingAttemptsBadge({ count }: { count: number }) {
+  let bgColor = '';
+  let textColor = '';
+  
+  if (count <= 1) {
+    bgColor = 'bg-[#e9f4ee]';
+    textColor = 'text-[#2f6f4f]'; // Green
+  } else if (count === 2) {
+    bgColor = 'bg-[#fff5cc]';
+    textColor = 'text-[#8a6d00]'; // Yellow
+  } else {
+    bgColor = 'bg-[#fdece4]';
+    textColor = 'text-[#b04a2c]'; // Red
+  }
+
+  return (
+    <span
+      title={`Ce véhicule a déjà été mis en vente ${count} fois.`}
+      className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${bgColor} ${textColor}`}
+    >
+      {`${count} tentative${count > 1 ? 's' : ''}`}
+    </span>
+  );
+}
+
 function VehicleField({ label, value }: { label: string; value?: React.ReactNode }) {
   return <div className="rounded-[10px] bg-[#f8f7f2] p-3"><div className="text-[10px] font-bold uppercase tracking-wide text-[#7a756a]">{label}</div><div className="mt-1 text-sm font-semibold text-[#13243c]">{value || '—'}</div></div>;
 }
@@ -75,7 +113,6 @@ export default function AdminSessionsPage() {
     startTime: '10:00',
     durationHours: 48,
     autoGenerateWeeks: 4,
-    autoAssignVehicles: true,
   });
 
   const [loading, setLoading] = useState(true);
@@ -95,6 +132,8 @@ export default function AdminSessionsPage() {
   const [savingSession, setSavingSession] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deletingSession, setDeletingSession] = useState(false);
+  const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
+  const [closingSession, setClosingSession] = useState(false);
 
   const [configOpen, setConfigOpen] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
@@ -104,6 +143,19 @@ export default function AdminSessionsPage() {
   const [createDate, setCreateDate] = useState('');
   const [createDuration, setCreateDuration] = useState(48);
   const [creating, setCreating] = useState(false);
+
+  // Repère indicatif : nombre de mises en vente prévu par la configuration générale.
+  // Il n'empêche pas d'affecter un véhicule au-delà, il signale seulement le dépassement.
+  const [listingAttemptLimit, setListingAttemptLimit] = useState<number | null>(null);
+
+  // Commissions : configuration globale + configuration propre à la session créée/éditée
+  const [defaultTiers, setDefaultTiers] = useState<CommissionTier[]>([]);
+  const [createUseDefaultCommission, setCreateUseDefaultCommission] = useState(true);
+  const [createCommissionDrafts, setCreateCommissionDrafts] = useState<CommissionTierDraft[]>([]);
+  const [panelCommissionOpen, setPanelCommissionOpen] = useState(false);
+  const [panelUseDefaultCommission, setPanelUseDefaultCommission] = useState(true);
+  const [panelCommissionDrafts, setPanelCommissionDrafts] = useState<CommissionTierDraft[]>([]);
+  const [initialCommission, setInitialCommission] = useState('');
 
   const fetchSessions = async () => {
     try {
@@ -123,9 +175,26 @@ export default function AdminSessionsPage() {
           startTime: res.startTime || '10:00',
           durationHours: res.durationHours ?? 48,
           autoGenerateWeeks: res.autoGenerateWeeks ?? 4,
-          autoAssignVehicles: res.autoAssignVehicles ?? true,
         });
       }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchDefaultTiers = async () => {
+    try {
+      const res = await apiRequest('/admin/commissions');
+      setDefaultTiers(res.tiers || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchListingAttemptLimit = async () => {
+    try {
+      const res = await apiRequest('/admin/general-config');
+      setListingAttemptLimit(res.config?.vehicleListingAttempts ?? null);
     } catch (err) {
       console.error(err);
     }
@@ -143,7 +212,9 @@ export default function AdminSessionsPage() {
   };
 
   useEffect(() => {
-    Promise.all([fetchSessions(), fetchConfig(), fetchAvailableVehicles()]).finally(() => setLoading(false));
+    Promise.all([
+      fetchSessions(), fetchConfig(), fetchAvailableVehicles(), fetchDefaultTiers(), fetchListingAttemptLimit(),
+    ]).finally(() => setLoading(false));
   }, []);
 
   const handlePrevMonth = () => {
@@ -193,6 +264,45 @@ export default function AdminSessionsPage() {
   }
   while (calendarCells.length % 7 !== 0) calendarCells.push(null);
 
+  // Corps envoyé au serveur pour la configuration de commission d'une session
+  const buildCommissionPayload = (useDefault: boolean, drafts: CommissionTierDraft[]) =>
+    (useDefault ? { useDefault: true } : { useDefault: false, tiers: drafts.map(draftToTier) });
+
+  // Empreinte comparable, pour savoir si l'admin a touché à la configuration
+  const commissionSignature = (useDefault: boolean, drafts: CommissionTierDraft[]) =>
+    JSON.stringify(buildCommissionPayload(useDefault, drafts));
+
+  // Passer en mode personnalisé prérenseigne les tranches avec la configuration par défaut,
+  // que l'admin n'a plus qu'à ajuster pour cette session.
+  const seedDraftsFromDefault = () => defaultTiers.filter((tier) => tier.active).map(tierToDraft);
+
+  // Le tiroir enregistre trois choses à la fois (nom, véhicules, commissions) : le bouton
+  // « Enregistrer » doit rester actif dès que l'une d'elles diverge de l'état initial.
+  const computeSessionDirty = (
+    overrides: { name?: string; useDefault?: boolean; drafts?: CommissionTierDraft[] } = {},
+  ) => {
+    if (!selectedSession) return false;
+    const name = overrides.name ?? selectedSession.name;
+    const useDefault = overrides.useDefault ?? panelUseDefaultCommission;
+    const drafts = overrides.drafts ?? panelCommissionDrafts;
+    const vehicleIds = (selectedSession.vehicles || []).map((vehicle) => vehicle._id);
+
+    return (
+      name.trim() !== initialSessionName.trim()
+      || vehicleIds.some((id) => !initialVehicleIds.includes(id))
+      || initialVehicleIds.some((id) => !vehicleIds.includes(id))
+      || commissionSignature(useDefault, drafts) !== initialCommission
+    );
+  };
+
+  const applySessionCommission = (commission?: SessionCommission) => {
+    const useDefault = commission?.useDefault !== false;
+    setPanelUseDefaultCommission(useDefault);
+    const drafts = useDefault ? [] : (commission?.tiers || []).map(tierToDraft);
+    setPanelCommissionDrafts(drafts);
+    setInitialCommission(commissionSignature(useDefault, drafts));
+  };
+
   // Open Session Detail Side Drawer
   const openSessionDetail = async (session: SessionData) => {
     setPanelSessionId(session._id);
@@ -200,11 +310,13 @@ export default function AdminSessionsPage() {
     setInitialSessionName(session.name);
     setInitialVehicleIds([]);
     setSessionDirty(false);
+    applySessionCommission(session.commission);
     try {
       const detail = await apiRequest(`/sessions/${session._id}`);
       setSelectedSession(detail);
       setInitialSessionName(detail.name);
       setInitialVehicleIds((detail.vehicles || []).map((vehicle: VehicleDossier) => vehicle._id));
+      applySessionCommission(detail.commission);
     } catch (err) {
       console.error(err);
     }
@@ -216,6 +328,9 @@ export default function AdminSessionsPage() {
     setInitialVehicleIds([]);
     setInitialSessionName('');
     setSessionDirty(false);
+    setPanelUseDefaultCommission(true);
+    setPanelCommissionDrafts([]);
+    setInitialCommission('');
     setSearchAvailable('');
     setAvailableBrand('all');
     setAvailableProcedure('all');
@@ -263,14 +378,28 @@ export default function AdminSessionsPage() {
     const addedIds = currentVehicleIds.filter((id) => !initialVehicleIds.includes(id));
     const removedIds = initialVehicleIds.filter((id) => !currentVehicleIds.includes(id));
 
+    if (!panelUseDefaultCommission) {
+      const commissionError = validateDrafts(panelCommissionDrafts);
+      if (commissionError) {
+        setError(commissionError);
+        return;
+      }
+    }
+
+    const nameChanged = selectedSession.name.trim() !== initialSessionName.trim();
+    const commissionChanged = commissionSignature(panelUseDefaultCommission, panelCommissionDrafts) !== initialCommission;
+
     setSavingSession(true);
     setError('');
     setMessage('');
     try {
       await Promise.all([
-        ...(selectedSession.name.trim() !== initialSessionName.trim() ? [apiRequest(`/sessions/${selectedSession._id}`, {
+        ...(nameChanged || commissionChanged ? [apiRequest(`/sessions/${selectedSession._id}`, {
           method: 'PUT',
-          body: JSON.stringify({ name: selectedSession.name.trim() }),
+          body: JSON.stringify({
+            name: selectedSession.name.trim(),
+            commission: buildCommissionPayload(panelUseDefaultCommission, panelCommissionDrafts),
+          }),
         })] : []),
         ...addedIds.map((vehicleId) => apiRequest(`/sessions/${selectedSession._id}/add-vehicle`, {
           method: 'POST',
@@ -282,16 +411,42 @@ export default function AdminSessionsPage() {
         })),
       ]);
       await Promise.all([fetchSessions(), fetchAvailableVehicles()]);
-      setMessage('Affectation des véhicules enregistrée avec succès.');
+      setMessage(commissionChanged ? 'Session enregistrée, commissions comprises.' : 'Affectation des véhicules enregistrée avec succès.');
       setPanelSessionId(null);
       setSelectedSession(null);
       setInitialVehicleIds([]);
       setInitialSessionName('');
       setSessionDirty(false);
+      setPanelUseDefaultCommission(true);
+      setPanelCommissionDrafts([]);
+      setInitialCommission('');
     } catch (err: any) {
       setError(err.message || 'Erreur lors de l\'enregistrement de la session.');
     } finally {
       setSavingSession(false);
+    }
+  };
+
+  /**
+   * Termine la session avant l'heure. Le serveur rejoue l'attribution des gagnants par le
+   * même code que la clôture par le temps : rien n'est raccourci ici.
+   */
+  const handleCloseSession = async () => {
+    if (!selectedSession || closingSession) return;
+    setClosingSession(true);
+    setError('');
+    setMessage('');
+    try {
+      const res = await apiRequest(`/sessions/${selectedSession._id}/close`, { method: 'POST' });
+      setCloseConfirmOpen(false);
+      setPanelSessionId(null);
+      setSelectedSession(null);
+      await Promise.all([fetchSessions(), fetchAvailableVehicles()]);
+      setMessage(res.message || 'Session clôturée.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erreur lors de la clôture de la session.');
+    } finally {
+      setClosingSession(false);
     }
   };
 
@@ -308,6 +463,9 @@ export default function AdminSessionsPage() {
       setInitialVehicleIds([]);
       setInitialSessionName('');
       setSessionDirty(false);
+      setPanelUseDefaultCommission(true);
+      setPanelCommissionDrafts([]);
+      setInitialCommission('');
       await Promise.all([fetchSessions(), fetchAvailableVehicles()]);
       setMessage('Session supprimée. Les véhicules associés sont de nouveau disponibles.');
     } catch (err: unknown) {
@@ -344,6 +502,13 @@ export default function AdminSessionsPage() {
       setError('Veuillez sélectionner une date.');
       return;
     }
+    if (!createUseDefaultCommission) {
+      const commissionError = validateDrafts(createCommissionDrafts);
+      if (commissionError) {
+        setError(commissionError);
+        return;
+      }
+    }
     setCreating(true);
     setError('');
     setMessage('');
@@ -354,12 +519,17 @@ export default function AdminSessionsPage() {
           name: createName.trim() || undefined,
           startDate: createDate,
           durationHours: createDuration,
+          commission: buildCommissionPayload(createUseDefaultCommission, createCommissionDrafts),
         }),
       });
-      setMessage('Session créée avec succès.');
+      setMessage(createUseDefaultCommission
+        ? 'Session créée avec la configuration de commission par défaut.'
+        : 'Session créée avec une configuration de commission personnalisée.');
       setCreateOpen(false);
       setCreateName('');
       setCreateDate('');
+      setCreateUseDefaultCommission(true);
+      setCreateCommissionDrafts([]);
       await fetchSessions();
     } catch (err: any) {
       setError(err.message || 'Erreur de création de la session.');
@@ -601,7 +771,14 @@ export default function AdminSessionsPage() {
               const meta = listStateMeta(session.status);
               return (
                 <button key={session._id} type="button" onClick={() => openSessionDetail(session)} className="grid w-full grid-cols-1 gap-2 border-b border-[#efece3] px-5 py-4 text-left transition last:border-b-0 hover:bg-[#fcfbf9] md:grid-cols-[1.3fr_1.4fr_1.4fr_.8fr_.8fr] md:items-center md:gap-4">
-                  <span className="font-bold text-[#13243c]">{session.name}</span>
+                  <span className="flex items-center gap-2 font-bold text-[#13243c]">
+                    {session.name}
+                    {session.commission?.useDefault === false && (
+                      <span className="rounded-full bg-[#faf1e4] px-2 py-0.5 text-[10px] font-bold uppercase text-[#b3893f]" title="Cette session applique ses propres tranches de commission">
+                        Commission perso.
+                      </span>
+                    )}
+                  </span>
                   <span className="text-sm text-[#4c5058]">{new Date(session.startDate || session.date || 0).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}</span>
                   <span className="text-sm text-[#4c5058]">{new Date(session.endDate).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}</span>
                   <span className="w-fit rounded-full px-2.5 py-1 text-[11px] font-bold" style={{ color: meta.color, backgroundColor: meta.bg }}>{meta.label}</span>
@@ -636,7 +813,7 @@ export default function AdminSessionsPage() {
                     value={selectedSession.name}
                     onChange={(event) => {
                       setSelectedSession({ ...selectedSession, name: event.target.value });
-                      setSessionDirty(event.target.value.trim() !== initialSessionName.trim() || (selectedSession.vehicles || []).map((vehicle) => vehicle._id).some((id) => !initialVehicleIds.includes(id)) || initialVehicleIds.some((id) => !(selectedSession.vehicles || []).some((vehicle) => vehicle._id === id)));
+                      setSessionDirty(computeSessionDirty({ name: event.target.value }));
                     }}
                     className="h-11 w-full rounded-[9px] border border-[#dcd7cb] bg-white px-3 text-[18px] font-bold uppercase text-[#13243c] focus:border-[#13243c] focus:outline-none"
                   />
@@ -647,11 +824,60 @@ export default function AdminSessionsPage() {
               </div>
 
               <div className="flex shrink-0 items-center gap-2">
+                {selectedSession.status !== 'closed' && selectedSession.status !== 'cloturee' && selectedSession.status !== 'annulee' && (
+                  <button type="button" onClick={() => setCloseConfirmOpen(true)} className="flex h-9 items-center gap-2 rounded-[8px] border border-[#e6d8bd] bg-white px-3 text-[11px] font-bold uppercase text-[#b3893f] transition hover:bg-[#faf1e4]">
+                    <Gavel size={15} /> Terminer la session
+                  </button>
+                )}
                 <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="flex h-9 items-center gap-2 rounded-[8px] border border-[#efb7b7] bg-white px-3 text-[11px] font-bold uppercase text-[#b91c1c] transition hover:bg-red-50">
                   <Trash2 size={15} /> Supprimer
                 </button>
                 <button type="button" onClick={closeSessionDetail} className="w-9 h-9 rounded-[8px] border border-[#dcd7cb] flex items-center justify-center font-semibold text-[15px] text-[#5a5e66] hover:bg-gray-50 transition cursor-pointer shrink-0">×</button>
               </div>
+            </div>
+
+            {/* Commission configuration for this session */}
+            <div className="shrink-0 border-b border-[#efece3] bg-[#fbfaf7]">
+              <button
+                type="button"
+                onClick={() => setPanelCommissionOpen((open) => !open)}
+                className="flex w-full items-center justify-between gap-3 px-6 py-3 text-left sm:px-8 cursor-pointer hover:bg-[#f5f3ec] transition"
+              >
+                <div className="min-w-0">
+                  <div className="font-bold text-[11px] uppercase tracking-[0.06em] text-[#4c5058]">
+                    Commissions de la session
+                  </div>
+                  <div className="mt-0.5 truncate text-[12px] text-[#5a5e66]">
+                    {panelUseDefaultCommission
+                      ? `Configuration par défaut · ${defaultTiers.filter((tier) => tier.active).length} tranche(s)`
+                      : `Personnalisée · ${panelCommissionDrafts.length} tranche(s)`}
+                  </div>
+                </div>
+                <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${panelUseDefaultCommission ? 'bg-[#e2e8f0] text-[#475569]' : 'bg-[#faf1e4] text-[#b3893f]'}`}>
+                  {panelUseDefaultCommission ? 'Par défaut' : 'Personnalisée'}
+                </span>
+              </button>
+
+              {panelCommissionOpen && (
+                <div className="max-h-[42vh] overflow-y-auto px-6 pb-4 sm:px-8">
+                  <CommissionTiersEditor
+                    useDefault={panelUseDefaultCommission}
+                    onUseDefaultChange={(next) => {
+                      const drafts = !next && panelCommissionDrafts.length === 0 ? seedDraftsFromDefault() : panelCommissionDrafts;
+                      setPanelUseDefaultCommission(next);
+                      setPanelCommissionDrafts(drafts);
+                      setSessionDirty(computeSessionDirty({ useDefault: next, drafts }));
+                    }}
+                    defaultTiers={defaultTiers}
+                    drafts={panelCommissionDrafts}
+                    onDraftsChange={(drafts) => {
+                      setPanelCommissionDrafts(drafts);
+                      setSessionDirty(computeSessionDirty({ drafts }));
+                    }}
+                    disabled={savingSession}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Split Content: Available vs Assigned */}
@@ -686,6 +912,7 @@ export default function AdminSessionsPage() {
                             <div className="font-normal text-[11px] leading-snug text-[#5a5e66] mt-0.5 truncate">
                               {v.registrationNumber || v.vin || '—'} · {v.seller?.companyName || 'Vendeur'}
                             </div>
+                            <ListingAttemptsBadge count={v.listingCount || 0} />
                           </div>
                           <button type="button" onClick={() => openVehicleDetail(v)} className="w-9 h-9 rounded-[8px] border border-[#cbd5e1] flex items-center justify-center text-[#13243c] hover:bg-slate-50" title="Voir la fiche du véhicule"><Search size={16} /></button>
                           <button
@@ -724,9 +951,11 @@ export default function AdminSessionsPage() {
                             {[v.brand, v.model].filter(Boolean).join(' ') || 'Sans nom'}
                           </div>
                           <div className="font-normal text-[11px] leading-snug text-[#5a5e66] mt-0.5 truncate">
-                            {v.registrationNumber || v.vin || '—'} · {v.seller?.companyName || 'Vendeur'}
+                            {v.lotNumber ? <span className="font-mono font-semibold text-[#b3893f]">Lot #{v.lotNumber}</span> : null}
+                            {v.lotNumber ? ' · ' : ''}{v.registrationNumber || v.vin || '—'} · {v.seller?.companyName || 'Vendeur'}
                           </div>
-                        </div>
+                            <ListingAttemptsBadge count={v.listingCount || 0} />
+                          </div>
                         <div className="font-semibold text-[12px] leading-none font-mono text-[#13243c] shrink-0">
                           {v.reservePrice ? `${v.reservePrice.toLocaleString('fr-FR')} €` : '—'}
                         </div>
@@ -755,7 +984,7 @@ export default function AdminSessionsPage() {
                   type="button"
                   onClick={closeSessionDetail}
                   disabled={savingSession}
-                  className="h-11 rounded-[9px] border border-[#dcd7cb] bg-white px-5 text-[12px] font-bold uppercase text-[#13243c] hover:bg-gray-50 disabled:opacity-50"
+                  className="btn btn-secondary disabled:opacity-50"
                 >
                   Annuler
                 </button>
@@ -763,7 +992,7 @@ export default function AdminSessionsPage() {
                   type="button"
                   onClick={handleSaveSession}
                   disabled={!sessionDirty || savingSession || !selectedSession.name.trim()}
-                  className="h-11 min-w-[150px] rounded-[9px] bg-[#13243c] px-5 text-[12px] font-bold uppercase text-white hover:bg-[#1a3050] disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="btn btn-primary min-w-[150px] disabled:cursor-not-allowed disabled:opacity-50 gap-2"
                 >
                   {savingSession && <Spinner />}
                   Enregistrer
@@ -896,21 +1125,37 @@ export default function AdminSessionsPage() {
                   </span>
                 </div>
               </div>
+
+              <div>
+                <label className="block font-semibold text-[12px] leading-none text-[#4c5058] mb-1.5">
+                  Générer à l&apos;avance
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={0}
+                    value={config.autoGenerateWeeks}
+                    onChange={(e) => setConfig({ ...config, autoGenerateWeeks: Number(e.target.value) })}
+                    className="w-full h-[44px] border border-[#dcd7cb] rounded-[9px] px-3 pr-16 font-mono font-semibold text-[14px] text-[#1a2230] bg-white focus:outline-none focus:border-[#13243c]"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 font-semibold text-[12px] text-[#4c5058]">
+                    semaines
+                  </span>
+                </div>
+                <p className="mt-1.5 text-[11px] leading-snug text-[#8a8270]">
+                  {config.autoGenerateWeeks === 0
+                    ? 'À 0, aucune session n\u2019est générée automatiquement.'
+                    : `Environ ${config.daysOfWeek.length * config.autoGenerateWeeks} session(s) seront créées à l\u2019enregistrement.`}
+                </p>
+              </div>
             </div>
 
-            {/* Affectation automatique */}
+            {/* La planification ne crée que le calendrier : le contenu reste à la main de l'admin */}
             <div className="mb-6.5 bg-[#fbfaf7] p-3.5 rounded-[9px] border border-[#eceadf]">
-              <label className="flex items-center gap-3 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={config.autoAssignVehicles}
-                  onChange={(e) => setConfig({ ...config, autoAssignVehicles: e.target.checked })}
-                  className="w-4 h-4 rounded text-[#13243c] focus:ring-0 cursor-pointer"
-                />
-                <span className="font-semibold text-[13px] text-[#13243c]">
-                  Affecter automatiquement les véhicules validés aux sessions à venir
-                </span>
-              </label>
+              <p className="text-[12px] leading-relaxed text-[#5a5e66]">
+                Cette planification génère uniquement le calendrier des sessions. L&apos;affectation des véhicules
+                à une session se fait manuellement, depuis le détail de chaque session.
+              </p>
             </div>
 
             <button
@@ -934,7 +1179,7 @@ export default function AdminSessionsPage() {
         >
           <form
             onSubmit={handleCreateManualSession}
-            className="w-full max-w-[460px] bg-white rounded-[16px] shadow-[0_26px_60px_rgba(0,0,0,0.28)] p-6 sm:p-[30px_32px] animate-in fade-in zoom-in-95 duration-150 space-y-4"
+            className="w-full max-w-[560px] max-h-[92vh] overflow-y-auto bg-white rounded-[16px] shadow-[0_26px_60px_rgba(0,0,0,0.28)] p-6 sm:p-[30px_32px] animate-in fade-in zoom-in-95 duration-150 space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-start border-b border-[#efece3] pb-3">
@@ -994,6 +1239,28 @@ export default function AdminSessionsPage() {
               />
             </div>
 
+            <div className="border-t border-[#efece3] pt-4">
+              <div className="font-semibold text-[12px] text-[#4c5058] mb-1">
+                Commissions de la session
+              </div>
+              <p className="text-[11px] text-[#5a5e66] mb-2.5">
+                La session hérite de la configuration par défaut. Personnalisez-la si cette session doit appliquer ses propres tranches.
+              </p>
+              <CommissionTiersEditor
+                useDefault={createUseDefaultCommission}
+                onUseDefaultChange={(next) => {
+                  setCreateUseDefaultCommission(next);
+                  if (!next && createCommissionDrafts.length === 0) {
+                    setCreateCommissionDrafts(seedDraftsFromDefault());
+                  }
+                }}
+                defaultTiers={defaultTiers}
+                drafts={createCommissionDrafts}
+                onDraftsChange={setCreateCommissionDrafts}
+                disabled={creating}
+              />
+            </div>
+
             <div className="pt-2">
               <button
                 type="submit"
@@ -1007,6 +1274,15 @@ export default function AdminSessionsPage() {
           </form>
         </div>
       )}
+
+      <ConfirmModal
+        open={closeConfirmOpen}
+        title="Terminer cette session"
+        message={`Clôturer « ${selectedSession?.name || 'cette session'} » maintenant ? Les gagnants seront désignés immédiatement pour les ${selectedSession?.vehicles?.length || selectedSession?.vehicleCount || 0} véhicule(s), les e-mails partiront et la procédure d'achat démarrera. Cette action est irréversible.`}
+        confirmLabel={closingSession ? 'Clôture…' : 'Terminer la session'}
+        onCancel={() => { if (!closingSession) setCloseConfirmOpen(false); }}
+        onConfirm={handleCloseSession}
+      />
 
       <ConfirmModal
         open={deleteConfirmOpen}

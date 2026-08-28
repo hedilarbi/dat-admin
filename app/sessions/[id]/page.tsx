@@ -14,6 +14,7 @@ interface Vehicle {
   vin: string;
   photos: { processedUrl?: string; originalUrl: string; isCover: boolean }[];
   seller: { companyName: string; firstName: string; lastName: string };
+  listingCount?: number;
 }
 
 interface Session {
@@ -230,6 +231,11 @@ export default function SessionDetailPage() {
     const coverPhoto = vehicle.photos?.find(p => p.isCover) || vehicle.photos?.[0];
     const imageUrl = coverPhoto?.processedUrl || coverPhoto?.originalUrl || '/placeholder-car.jpg';
 
+    const count = vehicle.listingCount || 0;
+    let countColor = 'bg-green-100 text-green-800';
+    if (count === 2) countColor = 'bg-yellow-100 text-yellow-800';
+    if (count >= 3) countColor = 'bg-red-100 text-red-800';
+
     return (
       <div 
         draggable
@@ -241,11 +247,16 @@ export default function SessionDetailPage() {
           <img src={imageUrl} alt={vehicle.model} className="w-full h-full object-cover" />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-gray-900 truncate">{vehicle.brand} {vehicle.model}</div>
-          <div className="text-xs text-gray-500 truncate">
+          <div className="font-semibold text-gray-900 truncate flex items-center gap-2">
+            {vehicle.brand} {vehicle.model}
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider ${countColor}`} title="Nombre de mises en vente">
+              {count} tentative{count !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="text-xs text-gray-500 truncate mt-1">
             {vehicle.year} • VIN: {vehicle.vin}
           </div>
-          <div className="text-xs text-gray-400 truncate mt-1">
+          <div className="text-xs text-gray-400 truncate mt-0.5">
             Vendeur: {vehicle.seller?.companyName || `${vehicle.seller?.firstName} ${vehicle.seller?.lastName}`}
           </div>
         </div>

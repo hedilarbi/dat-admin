@@ -353,14 +353,14 @@ export default function MessagesConfigurationPage() {
               type="button"
               onClick={closeForm}
               disabled={saving}
-              className="h-10 px-4 border border-[#dcd7cb] rounded-[8px] text-[#13243c] font-semibold text-[12px] hover:bg-gray-100 transition"
+              className="btn btn-secondary"
             >
               Annuler
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="h-10 px-6 bg-[#13243c] hover:bg-[#1a3050] text-white font-bold rounded-[8px] text-[12px] uppercase tracking-[0.03em] transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+              className="btn btn-primary disabled:opacity-50 gap-2"
             >
               {saving && <Spinner />}
               {saving ? 'Enregistrement...' : editingKey ? 'Mettre à jour' : 'Enregistrer le message'}
@@ -467,7 +467,7 @@ export default function MessagesConfigurationPage() {
                   type="button"
                   onClick={seedDefaultVehicleMessages}
                   disabled={saving}
-                  className="h-8 px-3 bg-white border border-[#d9704f] text-[#d9704f] hover:bg-[#d9704f] hover:text-white font-bold rounded-[7px] text-[11px] uppercase tracking-[0.03em] transition cursor-pointer"
+                  className="btn btn-accent"
                 >
                   Initialiser motifs par défaut
                 </button>

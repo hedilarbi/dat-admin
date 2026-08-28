@@ -217,7 +217,7 @@ export default function BlurZoneEditor({ imageUrl, mimeType, zones, onZonesChang
             <button
               type="button"
               onClick={onClose}
-              className="h-11 px-5 border border-[#dcd7cb] rounded-[9px] text-[#13243c] font-semibold text-[13px] hover:bg-gray-50 transition"
+              className="btn btn-secondary"
             >
               {pageZoneEntries.length > 0 ? 'Annuler' : 'Passer (sans flou)'}
             </button>
@@ -226,7 +226,7 @@ export default function BlurZoneEditor({ imageUrl, mimeType, zones, onZonesChang
               type="button"
               onClick={onValidate}
               disabled={validating || (isPdf && loadingPages)}
-              className="h-11 px-6 bg-[#13243c] hover:bg-slate-800 text-white font-bold text-[13px] rounded-[9px] uppercase tracking-[0.03em] transition shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+              className="btn btn-primary disabled:opacity-50 gap-2"
             >
               {validating && <Spinner />}
               {validating ? 'Application...' : pageZoneEntries.length > 0 ? 'Valider le floutage' : 'Valider'}

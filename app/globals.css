@@ -25,3 +25,41 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center h-10 px-4 rounded-[8px] text-[12px] font-bold uppercase tracking-[0.03em] transition-all cursor-pointer select-none border-2 shadow-sm;
+  }
+  
+  .btn-sm {
+    @apply h-8 px-3 text-[11px] rounded-[6px];
+  }
+  
+  .btn-lg {
+    @apply h-12 px-6 text-[14px] rounded-[9px];
+  }
+
+  .btn-primary {
+    @apply bg-[#13243c] border-[#13243c] text-white hover:bg-[#1a3050] hover:border-[#1a3050];
+  }
+  
+  .btn-secondary {
+    @apply bg-white border-[#dcd7cb] text-[#111827] hover:border-[#13243c] hover:bg-[#f8f9fa];
+  }
+  
+  .btn-accent {
+    @apply bg-[#d9704f] border-[#d9704f] text-white hover:bg-[#c66042] hover:border-[#c66042];
+  }
+
+  .btn-danger {
+    @apply bg-transparent border-[#f87171] text-[#ef4444] hover:bg-[#fef2f2];
+  }
+  
+  .btn-danger-solid {
+    @apply bg-[#ef4444] border-[#ef4444] text-white hover:bg-[#dc2626] hover:border-[#dc2626];
+  }
+  
+  .btn-success {
+    @apply bg-[#16a34a] border-[#16a34a] text-white hover:bg-[#15803d] hover:border-[#15803d];
+  }
+}

@@ -97,7 +97,7 @@ function DocumentRow({ document, title, onEditBlur }: { document: DossierDocumen
         {document.processedUrl ? 'Voir le document flouté' : 'Consulter'}
       </a>
       {isDocumentBlurrable(document) && (
-        <button type="button" onClick={onEditBlur} className="h-9 px-3 rounded-[8px] border border-[#d9704f] text-[#d9704f] text-[11px] font-bold uppercase hover:bg-[#fff7f3] transition shrink-0">
+        <button type="button" onClick={onEditBlur} className="btn btn-primary shrink-0">
           {zonesCount > 0 ? 'Modifier le flou' : 'Ajouter un flou'}
         </button>
       )}
@@ -409,7 +409,7 @@ export default function AdminDossierVehiculeDetailPage() {
       <div className="flex-1 min-w-0 pb-24 sm:pb-28 lg:pb-32">
         {/* Breadcrumb */}
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          <Link href="/dossiers" className="inline-flex h-9 items-center gap-2 rounded-[8px] border border-[#dcd7cb] bg-white px-3 text-[12px] font-bold text-[#13243c] transition hover:bg-[#f8f7f2]">
+          <Link href="/dossiers" className="btn btn-secondary gap-2">
             <ArrowLeft size={16} /> Retour aux dossiers
           </Link>
           <span className="font-semibold text-[12px] text-[#4c5058]">{vehicleLabel} · {plate}</span>
@@ -428,8 +428,8 @@ export default function AdminDossierVehiculeDetailPage() {
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
             {editingDossier ? <>
               <button type="button" onClick={() => { setEditingDossier(false); setEditForm(null); }} disabled={savingDossier} className="inline-flex h-10 items-center gap-2 rounded-[8px] border border-[#dcd7cb] bg-white px-4 text-[11px] font-bold uppercase text-[#13243c] hover:bg-gray-50 disabled:opacity-50"><X size={15} /> Annuler</button>
-              <button type="button" onClick={handleSaveDossier} disabled={savingDossier} className="inline-flex h-10 items-center gap-2 rounded-[8px] bg-[#13243c] px-4 text-[11px] font-bold uppercase text-white hover:bg-[#1a3050] disabled:opacity-50">{savingDossier ? <Spinner /> : <Save size={15} />} Enregistrer</button>
-            </> : <button type="button" onClick={startEditingDossier} className="inline-flex h-10 items-center gap-2 rounded-[8px] border border-[#d9704f] bg-white px-4 text-[11px] font-bold uppercase text-[#d9704f] hover:bg-orange-50"><Pencil size={15} /> Modifier</button>}
+              <button type="button" onClick={handleSaveDossier} disabled={savingDossier} className="btn btn-primary gap-2 disabled:opacity-50">{savingDossier ? <Spinner /> : <Save size={15} />} Enregistrer</button>
+            </> : <button type="button" onClick={startEditingDossier} className="btn btn-accent gap-2"><Pencil size={15} /> Modifier</button>}
             <span className="font-semibold text-[11px] leading-none px-3.5 py-2 rounded-full whitespace-nowrap" style={{ background: statusMeta.bg, color: statusMeta.color }}>{statusMeta.label}</span>
           </div>
         </div>
@@ -587,7 +587,7 @@ export default function AdminDossierVehiculeDetailPage() {
               type="button"
               onClick={handleSaveMedia}
               disabled={savingMedia}
-              className="h-8 px-3 bg-[#13243c] hover:bg-slate-800 text-white text-[11px] font-bold uppercase rounded-[7px] transition disabled:opacity-50 flex items-center gap-1.5"
+              className="btn btn-primary disabled:opacity-50 gap-1.5"
             >
               {savingMedia && <Spinner />}
               Enregistrer modifications
@@ -617,7 +617,7 @@ export default function AdminDossierVehiculeDetailPage() {
             Documents fournis
           </div>
           {mediaDirty && (
-            <button type="button" onClick={handleSaveMedia} disabled={savingMedia} className="h-8 px-3 bg-[#13243c] hover:bg-slate-800 text-white text-[11px] font-bold uppercase rounded-[7px] transition disabled:opacity-50 flex items-center gap-1.5">
+            <button type="button" onClick={handleSaveMedia} disabled={savingMedia} className="btn btn-primary disabled:opacity-50 gap-1.5">
               {savingMedia && <Spinner />}
               Enregistrer les floutages
             </button>

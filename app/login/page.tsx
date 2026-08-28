@@ -39,7 +39,7 @@ export default function AdminLoginPage() {
       setMessage('Connexion d\'administration réussie. Redirection...');
       await refreshProfile();
       setTimeout(() => {
-        router.push('/dashboard');
+        router.push('/');
       }, 1500);
     } catch (err: any) {
       setError(err.message || 'Identifiants incorrects.');
@@ -94,7 +94,7 @@ export default function AdminLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex items-center justify-center gap-2 py-2 px-4 border border-transparent text-sm font-bold rounded-md text-white bg-[#13243C] hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+              className="btn btn-primary group relative w-full gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
             >
               {loading && <Spinner />}
               {loading ? 'Connexion...' : 'Se connecter au panel'}
