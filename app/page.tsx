@@ -26,6 +26,7 @@ interface DashboardStats {
         companyName: string;
       };
       winningOfferAmount: number;
+      currentStep?: number | null;
     }>;
   };
   kpis: {
