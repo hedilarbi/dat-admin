@@ -16,7 +16,7 @@ import {
   tierToDraft,
   validateDrafts,
 } from '../lib/commission';
-import { Gavel, Search, Trash2 } from 'lucide-react';
+import { AlertTriangle, CalendarDays, CarFront, ChevronLeft, ChevronRight, Clock3, Gavel, Search, Trash2 } from 'lucide-react';
 
 interface SessionData {
   _id: string;
@@ -49,7 +49,20 @@ const WEEKDAY_NAMES = [
   { id: 0, label: 'Dimanche' },
 ];
 
-const CALENDAR_WEEKDAY_HEADERS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const startOfWeek = (date: Date) => {
+  const result = new Date(date);
+  result.setHours(0, 0, 0, 0);
+  result.setDate(result.getDate() - ((result.getDay() + 6) % 7));
+  return result;
+};
+
+const addDays = (date: Date, days: number) => new Date(date.getTime() + days * DAY_MS);
+
+const formatShortDateTime = (date: Date) => date.toLocaleString('fr-FR', {
+  weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+});
 
 function VehicleCover({ vehicle }: { vehicle: VehicleDossier }) {
   const cover = vehicle.photos?.find((photo) => photo.isCover) || vehicle.photos?.[0];
@@ -101,7 +114,9 @@ function VehicleField({ label, value }: { label: string; value?: React.ReactNode
 
 export default function AdminSessionsPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
+  const [viewMode, setViewMode] = useState<'planning' | 'list'>('planning');
+  const [planningRange, setPlanningRange] = useState<7 | 28 | 56>(7);
+  const [planningStatus, setPlanningStatus] = useState<'all' | 'scheduled' | 'ongoing' | 'finished'>('all');
   const [listDateFrom, setListDateFrom] = useState('');
   const [listDateTo, setListDateTo] = useState('');
   const [listStatus, setListStatus] = useState<'all' | 'scheduled' | 'ongoing' | 'finished'>('all');
@@ -217,13 +232,8 @@ export default function AdminSessionsPage() {
     ]).finally(() => setLoading(false));
   }, []);
 
-  const handlePrevMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
-  };
-
-  const handleNextMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
-  };
+  const handlePreviousPeriod = () => setCurrentDate((date) => addDays(date, -planningRange));
+  const handleNextPeriod = () => setCurrentDate((date) => addDays(date, planningRange));
 
   const statusMeta = (status: string) => {
     switch (status) {
@@ -242,27 +252,6 @@ export default function AdminSessionsPage() {
         return { color: '#5a5e66', label: 'Session', bg: '#eef1f5' };
     }
   };
-
-  // Calendar Grid calculation for current month
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-
-  const firstDayObj = new Date(year, month, 1);
-  const firstDayWeekday = (firstDayObj.getDay() + 6) % 7; // Monday=0, Sunday=6
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-  const calendarCells: Array<{ dayNum?: number; dateObj?: Date; session?: SessionData } | null> = [];
-  for (let i = 0; i < firstDayWeekday; i++) calendarCells.push(null);
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dObj = new Date(year, month, d);
-    // Find session for this date
-    const sessionMatch = sessions.find((s) => {
-      const sDate = new Date(s.startDate || s.date || Date.now());
-      return sDate.getFullYear() === year && sDate.getMonth() === month && sDate.getDate() === d;
-    });
-    calendarCells.push({ dayNum: d, dateObj: dObj, session: sessionMatch });
-  }
-  while (calendarCells.length % 7 !== 0) calendarCells.push(null);
 
   // Corps envoyé au serveur pour la configuration de commission d'une session
   const buildCommissionPayload = (useDefault: boolean, drafts: CommissionTierDraft[]) =>
@@ -538,8 +527,6 @@ export default function AdminSessionsPage() {
     }
   };
 
-  const monthLabel = currentDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-
   const sessionState = (status: SessionData['status']) => {
     if (['open', 'active'].includes(status)) return 'ongoing';
     if (['closed', 'cloturee'].includes(status)) return 'finished';
@@ -583,6 +570,25 @@ export default function AdminSessionsPage() {
     })
     .sort((a, b) => new Date(b.startDate || b.date || 0).getTime() - new Date(a.startDate || a.date || 0).getTime());
 
+  const weekStart = startOfWeek(currentDate);
+  const periodEnd = addDays(weekStart, planningRange);
+  const planningDays = Array.from({ length: planningRange }, (_, index) => addDays(weekStart, index));
+  const weekLabel = `${weekStart.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} — ${addDays(periodEnd, -1).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+  const planningSessions = sessions
+    .filter((session) => {
+      const start = new Date(session.startDate || session.date || 0);
+      const end = new Date(session.endDate || start.getTime() + (session.durationHours || 48) * 3600000);
+      return start < periodEnd && end > weekStart
+        && (planningStatus === 'all' || sessionState(session.status) === planningStatus);
+    })
+    .sort((a, b) => new Date(a.startDate || a.date || 0).getTime() - new Date(b.startDate || b.date || 0).getTime());
+  const now = new Date();
+  const ongoingSession = sessions.find((session) => sessionState(session.status) === 'ongoing');
+  const nextSession = sessions
+    .filter((session) => sessionState(session.status) === 'scheduled' && new Date(session.startDate || session.date || 0) > now)
+    .sort((a, b) => new Date(a.startDate || a.date || 0).getTime() - new Date(b.startDate || b.date || 0).getTime())[0];
+  const sessionsToPrepare = sessions.filter((session) => sessionState(session.status) === 'scheduled' && (session.vehicleCount || 0) === 0).length;
+
   if (loading) return <LoadingSpinner />;
 
   return (
@@ -601,27 +607,25 @@ export default function AdminSessionsPage() {
         {/* Top Actions */}
         <div className="flex flex-wrap items-center gap-3.5">
           <div className="flex rounded-[9px] border border-[#dcd7cb] bg-[#f8f7f2] p-1">
-            <button type="button" onClick={() => setViewMode('calendar')} className={`h-8 rounded-[7px] px-3 text-[12px] font-bold transition ${viewMode === 'calendar' ? 'bg-[#13243c] text-white shadow-sm' : 'text-[#4c5058] hover:bg-white'}`}>
-              Calendrier
+            <button type="button" onClick={() => setViewMode('planning')} className={`h-8 rounded-[7px] px-3 text-[12px] font-bold transition ${viewMode === 'planning' ? 'bg-[#13243c] text-white shadow-sm' : 'text-[#4c5058] hover:bg-white'}`}>
+              Planning
             </button>
             <button type="button" onClick={() => setViewMode('list')} className={`h-8 rounded-[7px] px-3 text-[12px] font-bold transition ${viewMode === 'list' ? 'bg-[#13243c] text-white shadow-sm' : 'text-[#4c5058] hover:bg-white'}`}>
               Liste
             </button>
           </div>
-          {viewMode === 'calendar' && <>
+          {viewMode === 'planning' && <>
           <button
             type="button"
-            onClick={handlePrevMonth}
+            onClick={handlePreviousPeriod}
             className="w-[34px] h-[34px] rounded-[8px] border border-[#dcd7cb] flex items-center justify-center font-bold text-[15px] text-[#13243c] hover:bg-gray-50 transition cursor-pointer"
           >
             ‹
           </button>
-          <div className="font-bold text-[18px] leading-none uppercase text-[#13243c] min-w-[170px] text-center font-['Saira_Condensed',sans-serif]">
-            {monthLabel}
-          </div>
+          <button type="button" onClick={() => setCurrentDate(new Date())} className="h-[34px] rounded-[8px] border border-[#dcd7cb] px-3 text-[11px] font-bold uppercase text-[#13243c] hover:bg-gray-50">Aujourd’hui</button>
           <button
             type="button"
-            onClick={handleNextMonth}
+            onClick={handleNextPeriod}
             className="w-[34px] h-[34px] rounded-[8px] border border-[#dcd7cb] flex items-center justify-center font-bold text-[15px] text-[#13243c] hover:bg-gray-50 transition cursor-pointer"
           >
             ›
@@ -652,90 +656,56 @@ export default function AdminSessionsPage() {
       {error && <Alert variant="error" className="mb-5">{error}</Alert>}
       {message && <Alert variant="success" className="mb-5">{message}</Alert>}
 
-      {viewMode === 'calendar' ? <>
-      {/* Weekdays Header */}
-      <div className="grid grid-cols-7 gap-2 mb-2">
-        {CALENDAR_WEEKDAY_HEADERS.map((wd) => (
-          <div key={wd} className="text-center font-semibold text-[11px] leading-none uppercase tracking-[0.05em] text-[#5a5e66] pb-1.5">
-            {wd}
+      {viewMode === 'planning' ? <>
+      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-[12px] border border-[#bcd8c8] bg-[#eef8f2] p-4"><div className="flex items-center gap-2 text-[11px] font-bold uppercase text-[#2f6f4f]"><Clock3 size={15} /> Session en cours</div><div className="mt-2 truncate text-lg font-bold text-[#13243c]">{ongoingSession?.name || 'Aucune'}</div><div className="mt-1 text-xs text-[#5a5e66]">{ongoingSession ? `Fin ${formatShortDateTime(new Date(ongoingSession.endDate))}` : 'Aucune enchère active actuellement'}</div></div>
+        <div className="rounded-[12px] border border-[#bfdbfe] bg-[#eff6ff] p-4"><div className="flex items-center gap-2 text-[11px] font-bold uppercase text-[#1d4ed8]"><CalendarDays size={15} /> Prochaine session</div><div className="mt-2 truncate text-lg font-bold text-[#13243c]">{nextSession?.name || 'Non programmée'}</div><div className="mt-1 text-xs text-[#5a5e66]">{nextSession ? formatShortDateTime(new Date(nextSession.startDate || nextSession.date || 0)) : 'Aucune session à venir'}</div></div>
+        <div className="rounded-[12px] border border-[#e2ddd1] bg-[#fbfaf7] p-4"><div className="flex items-center gap-2 text-[11px] font-bold uppercase text-[#6b6252]"><CarFront size={15} /> Sans session</div><div className="mt-2 text-2xl font-bold text-[#13243c]">{availableVehicles.length}</div><div className="mt-1 text-xs text-[#5a5e66]">véhicules validés à planifier</div></div>
+        <div className={`rounded-[12px] border p-4 ${sessionsToPrepare ? 'border-[#fed7aa] bg-[#fff7ed]' : 'border-[#e2ddd1] bg-[#fbfaf7]'}`}><div className={`flex items-center gap-2 text-[11px] font-bold uppercase ${sessionsToPrepare ? 'text-[#c2410c]' : 'text-[#6b6252]'}`}><AlertTriangle size={15} /> À préparer</div><div className="mt-2 text-2xl font-bold text-[#13243c]">{sessionsToPrepare}</div><div className="mt-1 text-xs text-[#5a5e66]">sessions programmées sans véhicule</div></div>
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-4">
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-[.1em] text-[#a3987f]">Planning {planningRange === 7 ? 'hebdomadaire' : planningRange === 28 ? 'sur 1 mois' : 'sur 2 mois'}</div>
+            <h2 className="mt-1 text-[24px] font-bold uppercase leading-none text-[#13243c] font-['Saira_Condensed',sans-serif]">{weekLabel}</h2>
           </div>
-        ))}
+          <div className="flex items-center gap-1 rounded-[8px] border border-[#dcd7cb] bg-[#f8f7f2] p-1">
+            <button type="button" onClick={() => setCurrentDate(new Date(currentDate.getTime() - planningRange * 24 * 60 * 60 * 1000))} className="flex h-8 w-8 items-center justify-center rounded-[6px] text-[#4c5058] transition hover:bg-white hover:text-[#13243c] hover:shadow-sm" title="Précédent">
+              <ChevronLeft size={16} />
+            </button>
+            <button type="button" onClick={() => setCurrentDate(new Date())} className="px-2 text-[11px] font-bold text-[#4c5058] transition hover:text-[#13243c]">Aujourd'hui</button>
+            <button type="button" onClick={() => setCurrentDate(new Date(currentDate.getTime() + planningRange * 24 * 60 * 60 * 1000))} className="flex h-8 w-8 items-center justify-center rounded-[6px] text-[#4c5058] transition hover:bg-white hover:text-[#13243c] hover:shadow-sm" title="Suivant">
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2"><div className="mr-2 flex rounded-[8px] border border-[#dcd7cb] bg-[#f8f7f2] p-1"><button type="button" onClick={() => setPlanningRange(7)} className={`rounded-[6px] px-3 py-1.5 text-[11px] font-bold ${planningRange === 7 ? 'bg-white text-[#13243c] shadow-sm' : 'text-[#6b7280]'}`}>1 semaine</button><button type="button" onClick={() => setPlanningRange(28)} className={`rounded-[6px] px-3 py-1.5 text-[11px] font-bold ${planningRange === 28 ? 'bg-white text-[#13243c] shadow-sm' : 'text-[#6b7280]'}`}>1 mois</button><button type="button" onClick={() => setPlanningRange(56)} className={`rounded-[6px] px-3 py-1.5 text-[11px] font-bold ${planningRange === 56 ? 'bg-white text-[#13243c] shadow-sm' : 'text-[#6b7280]'}`}>2 mois</button></div>{([['all', 'Toutes'], ['scheduled', 'Programmées'], ['ongoing', 'En cours'], ['finished', 'Terminées']] as const).map(([value, label]) => <button key={value} type="button" onClick={() => setPlanningStatus(value)} className={`rounded-full px-3 py-2 text-[11px] font-bold ${planningStatus === value ? 'bg-[#13243c] text-white' : 'border border-[#dcd7cb] bg-white text-[#4c5058]'}`}>{label}</button>)}</div>
       </div>
 
-      {/* Calendar Grid */}
-      <div className="grid grid-cols-7 gap-2 mb-[22px]">
-        {calendarCells.map((cell, idx) => {
-          if (!cell) {
-            return <div key={`empty-${idx}`} className="min-h-[104px] rounded-[10px] bg-transparent" />;
-          }
-
-          const { dayNum, dateObj, session } = cell;
-          const meta = session ? statusMeta(session.status) : null;
-          const isSelected = selectedSession && session && selectedSession._id === session._id;
-
-          return (
-            <div
-              key={idx}
-              style={session && meta ? { backgroundColor: meta.bg, borderColor: meta.color } : undefined}
-              onClick={() => {
-                if (session) {
-                  openSessionDetail(session);
-                } else if (dateObj) {
-                  // Prefill new manual session date
-                  const localIso = new Date(dateObj.getTime() - dateObj.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-                  setCreateDate(localIso);
-                  setCreateOpen(true);
-                }
-              }}
-              className={`min-h-[104px] rounded-[10px] p-2.5 sm:p-3 flex flex-col transition-all cursor-pointer ${
-                session ? 'bg-white' : 'bg-[#fbfaf7] hover:bg-gray-100/80'
-              } border-[1.5px] ${
-                isSelected
-                  ? 'border-[#13243c] ring-2 ring-[#13243c]/10'
-                  : session
-                  ? 'border-[#eceadf] hover:border-[#dcd7cb]'
-                  : 'border-[#f1efe8]'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="font-bold text-[14px] leading-none text-[#13243c]">
-                  {dayNum}
-                </div>
-                {!session && (
-                  <span className="text-[11px] font-bold text-gray-300 group-hover:text-[#13243c] transition-colors">+</span>
-                )}
-              </div>
-
-              {session && (
-                <div className="mt-auto">
-                  <div className="font-bold text-[12px] leading-tight truncate" style={{ color: meta?.color }}>
-                    {session.name}
-                  </div>
-                  <div className="font-semibold text-[11px] leading-tight text-[#5a5e66] mt-0.5">
-                    {session.vehicleCount || 0} véhicule{(session.vehicleCount || 0) > 1 ? 's' : ''}
-                  </div>
-                </div>
-              )}
+      <div className="overflow-x-auto rounded-[12px] border border-[#e5e1d7] bg-white shadow-sm">
+        <div style={{ minWidth: planningRange === 7 ? 980 : planningRange * 70 }}>
+        <div className="hidden border-b border-[#e5e1d7] bg-[#f8f7f2] md:grid" style={{ gridTemplateColumns: `repeat(${planningRange}, minmax(0, 1fr))` }}>{planningDays.map((day) => { const today = day.toDateString() === now.toDateString(); return <button key={day.toISOString()} type="button" onClick={() => { const localIso = new Date(day.getTime() - day.getTimezoneOffset() * 60000).toISOString().slice(0, 16); setCreateDate(localIso); setCreateOpen(true); }} className={`border-r border-[#e5e1d7] px-1 py-2 text-center last:border-r-0 hover:bg-white ${today ? 'bg-[#fff3e9]' : ''}`}><span className="block text-[9px] font-bold uppercase text-[#7a756a]">{day.toLocaleDateString('fr-FR', { weekday: 'short', month: planningRange > 7 ? 'short' : undefined })}</span><span className={`mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${today ? 'bg-[#d9704f] text-white' : 'text-[#13243c]'}`}>{day.getDate()}</span><span className="mt-1 grid grid-cols-4 text-[7px] font-medium text-[#a3987f]"><i>00h</i><i>6h</i><i>12h</i><i>18h</i></span></button>; })}</div>
+        {planningSessions.length === 0 ? <div className="px-5 py-14 text-center text-sm font-medium text-[#5a5e66]">Aucune session sur cette période.</div> : <div className="divide-y divide-[#efece3]">{planningSessions.map((session) => {
+          const start = new Date(session.startDate || session.date || 0);
+          const end = new Date(session.endDate || start.getTime() + (session.durationHours || 48) * 3600000);
+          const visibleStart = Math.max(start.getTime(), weekStart.getTime());
+          const visibleEnd = Math.min(end.getTime(), periodEnd.getTime());
+          const left = ((visibleStart - weekStart.getTime()) / (planningRange * DAY_MS)) * 100;
+          const width = ((visibleEnd - visibleStart) / (planningRange * DAY_MS)) * 100;
+          const meta = listStateMeta(session.status);
+          return <div key={session._id} className="p-3 md:relative md:h-[92px] md:p-0">
+            <div className="pointer-events-none absolute inset-0 hidden md:grid" style={{ gridTemplateColumns: `repeat(${planningRange * 4}, minmax(0, 1fr))` }} aria-hidden="true">
+              {planningDays.flatMap((day) => [0, 1, 2, 3].map((quarter) => <div key={`${day.toISOString()}-${quarter}`} className={`border-r ${quarter === 3 ? 'border-[#ded9ce]' : 'border-dashed border-[#f0ede6]'} ${day.toDateString() === now.toDateString() ? 'bg-[#fffaf5]' : ''}`} />))}
             </div>
-          );
-        })}
-      </div>
-
-      {/* Legend Footer */}
-      <div className="flex flex-wrap items-center gap-[22px] border-t border-[#efece3] pt-4 pb-8 sm:pb-10">
-        <div className="flex items-center gap-2">
-          <div className="w-[11px] h-[11px] rounded-[3px] bg-[#16a34a]" />
-          <span className="font-medium text-[12px] leading-none text-[#5a5e66]">Session ouverte</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-[11px] h-[11px] rounded-[3px] bg-[#2563eb]" />
-          <span className="font-medium text-[12px] leading-none text-[#5a5e66]">Session à venir</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-[11px] h-[11px] rounded-[3px] bg-[#64748b]" />
-          <span className="font-medium text-[12px] leading-none text-[#5a5e66]">Session clôturée</span>
-        </div>
-      </div>
+            <button type="button" onClick={() => openSessionDetail(session)} style={{ backgroundColor: meta.bg, borderColor: meta.color, '--planning-left': `${left}%`, '--planning-width': `${width}%` } as React.CSSProperties} className="w-full rounded-[10px] border-l-4 p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md md:absolute md:top-3 md:left-[var(--planning-left)] md:w-[var(--planning-width)] md:h-[68px] md:overflow-hidden md:py-2.5">
+              <div className="flex items-start justify-between gap-2"><span className="truncate text-[13px] font-bold text-[#13243c]">{session.name}</span><span className="shrink-0 rounded-full bg-white/70 px-2 py-0.5 text-[9px] font-bold uppercase" style={{ color: meta.color }}>{meta.label}</span></div>
+              <div className="mt-1 truncate text-[11px] font-semibold text-[#4c5058]">{formatShortDateTime(start)} → {formatShortDateTime(end)}</div><div className="mt-0.5 text-[10px] text-[#5a5e66]">{session.vehicleCount || 0} véhicule{(session.vehicleCount || 0) > 1 ? 's' : ''} · {Math.max(1, Math.round((end.getTime() - start.getTime()) / 3600000))} h</div>
+            </button>
+          </div>;
+        })}</div>}
+      </div></div>
+      <div className="mt-4 flex flex-wrap items-center gap-5 text-[11px] font-semibold text-[#5a5e66]"><span><i className="mr-1.5 inline-block h-2.5 w-2.5 rounded-sm bg-[#dcfce7]" />En cours</span><span><i className="mr-1.5 inline-block h-2.5 w-2.5 rounded-sm bg-[#dbeafe]" />Programmée</span><span><i className="mr-1.5 inline-block h-2.5 w-2.5 rounded-sm bg-[#e2e8f0]" />Terminée</span><span>La largeur d’une barre représente sa durée réelle.</span></div>
       </> : (
         <div className="flex flex-col gap-5">
           <div className="rounded-[12px] border border-[#eceadf] bg-[#fbfaf7] p-4">

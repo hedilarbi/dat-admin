@@ -99,7 +99,13 @@ export interface VehicleDossier {
   expertReport?: DossierDocument;
   additionalDocuments: DossierDocument[];
   reservePrice?: number;
-  session?: string;
+  session?: string | {
+    _id: string;
+    name: string;
+    startDate: string;
+    endDate: string;
+    status: string;
+  };
   /** Nombre de fois où le véhicule a été mis en vente dans une session */
   listingCount?: number;
   /** Numéro de lot attribué à la publication dans une session (« Lot #12311 »). */

@@ -141,7 +141,7 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
     const { type, metadata } = notification;
     if (type === 'registration_submitted' && metadata?.userId && metadata?.role) {
       router.push(`/inscription/${metadata.role}/${metadata.userId}`);
-    } else if (type === 'vehicle_dossier_submitted' && metadata?.dossierId) {
+    } else if ((type === 'vehicle_dossier_submitted' || type === 'vehicle_max_attempts_reached') && metadata?.dossierId) {
       router.push(`/dossiers/${metadata.dossierId}`);
     } else if (type === 'ticket_created' && metadata?.ticketId) {
       router.push(`/support?ticketId=${metadata.ticketId}`);

@@ -6,7 +6,7 @@ import Alert from '../components/Alert';
 import LoadingSpinner from '../components/LoadingSpinner';
 import FilterPills, { FilterOption } from '../components/FilterPills';
 import { useRouter } from 'next/navigation';
-import { Bell, Check, Clock, ExternalLink, ShieldAlert, Ticket, FileText, UserPlus } from 'lucide-react';
+import { Bell, Check, Clock, ExternalLink, ShieldAlert, Ticket, FileText, UserPlus, AlertTriangle } from 'lucide-react';
 
 interface AdminNotification {
   _id: string;
@@ -39,6 +39,7 @@ const FILTER_OPTIONS: FilterOption<string>[] = [
   { value: 'all', label: 'Toutes' },
   { value: 'registration_submitted', label: 'Inscriptions' },
   { value: 'vehicle_dossier_submitted', label: 'Dossiers véhicules' },
+  { value: 'vehicle_max_attempts_reached', label: 'Véhicules obstinés' },
   { value: 'ticket_created', label: 'Support / Tickets' },
   { value: 'late_payment_alert', label: 'Retards paiement' },
   { value: 'certificate_rejected', label: 'Certificats refusés' },
@@ -127,6 +128,12 @@ export default function NotificationsCenterPage() {
           bgColor: 'bg-green-50 text-green-600 border-green-100',
           label: 'Dossier',
         };
+      case 'vehicle_max_attempts_reached':
+        return {
+          icon: AlertTriangle,
+          bgColor: 'bg-orange-50 text-orange-600 border-orange-100',
+          label: 'Véhicule obstiné',
+        };
       case 'ticket_created':
         return {
           icon: Ticket,
@@ -159,7 +166,7 @@ export default function NotificationsCenterPage() {
     if (type === 'registration_submitted' && metadata?.userId && metadata?.role) {
       return `/inscription/${metadata.role}/${metadata.userId}`;
     }
-    if (type === 'vehicle_dossier_submitted' && metadata?.dossierId) {
+    if ((type === 'vehicle_dossier_submitted' || type === 'vehicle_max_attempts_reached') && metadata?.dossierId) {
       return `/dossiers/${metadata.dossierId}`;
     }
     if (type === 'ticket_created' && metadata?.ticketId) {

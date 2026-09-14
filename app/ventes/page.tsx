@@ -22,6 +22,7 @@ const SALE_STATE_BADGES: Record<SaleState, { label: string; color: string; bg: s
 
 interface VehicleSaleRow {
   _id: string;
+  coverPhotoUrl?: string | null;
   brand?: string;
   model?: string;
   registrationNumber?: string;
@@ -65,7 +66,7 @@ interface VehicleSaleRow {
 }
 
 type ColumnKey =
-  | 'brand' | 'model' | 'registrationNumber' | 'seller' | 'saleState' | 'session'
+  | 'coverPhoto' | 'brand' | 'model' | 'registrationNumber' | 'seller' | 'saleState' | 'session'
   | 'amount' | 'winner' | 'reservePrice' | 'listingCount' | 'procedure' | 'submittedAt'
   | 'year' | 'co2' | 'energyLabel' | 'vehicleGenre' | 'fiscalPower' | 'bodyType'
   | 'vin' | 'gearbox' | 'color' | 'mileage' | 'vrade' | 'registrationCardAvailable'
@@ -82,6 +83,7 @@ interface TableColumn {
 }
 
 const TABLE_COLUMNS: TableColumn[] = [
+  { key: 'coverPhoto', label: 'Photo', width: 120 },
   { key: 'lotNumber', label: 'Lot', width: 110 },
   { key: 'brand', label: 'Marque', width: 150 },
   { key: 'model', label: 'Modèle', width: 160 },
@@ -134,12 +136,12 @@ const CARD_MISSING_REASON_LABELS: Record<string, string> = {
 
 const yesNo = (value?: boolean) => (value === undefined ? '—' : value ? 'Oui' : 'Non');
 
-const DEFAULT_COLUMNS: ColumnKey[] = ['lotNumber', 'brand', 'model', 'registrationNumber', 'seller', 'session', 'amount', 'saleState'];
-const COLUMN_STORAGE_KEY = 'dealsautopro.admin.ventes.columns';
+const DEFAULT_COLUMNS: ColumnKey[] = ['coverPhoto', 'lotNumber', 'brand', 'model', 'registrationNumber', 'seller', 'session', 'amount', 'saleState'];
+const COLUMN_STORAGE_KEY = 'dealsautopro.admin.ventes.columns.v2';
 
 // Colonnes calculées côté serveur : elles n'existent pas sur le dossier véhicule et ne
 // peuvent donc pas être filtrées par la même mécanique que les champs du document.
-const NON_FILTERABLE: ColumnKey[] = ['amount', 'winner', 'photoCount', 'hasExpertReport', 'updatedAt'];
+const NON_FILTERABLE: ColumnKey[] = ['coverPhoto', 'amount', 'winner', 'photoCount', 'hasExpertReport', 'updatedAt'];
 
 type StateCounts = Record<SaleState, number>;
 
@@ -205,6 +207,10 @@ export default function AdminVentesPage() {
 
   const renderCell = (row: VehicleSaleRow, key: ColumnKey) => {
     switch (key) {
+      case 'coverPhoto': return row.coverPhotoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={row.coverPhotoUrl} alt={`${row.brand || ''} ${row.model || ''}`.trim() || 'Véhicule'} className="h-14 w-20 rounded-[7px] border border-[#e5e1d7] object-cover" />
+      ) : <div className="flex h-14 w-20 items-center justify-center rounded-[7px] bg-[#f1efe9] text-[10px] text-[#8a8270]">Aucune photo</div>;
       case 'brand': return row.brand || '—';
       case 'model': return row.model || '—';
       case 'registrationNumber': return row.registrationNumber || '—';
@@ -252,6 +258,7 @@ export default function AdminVentesPage() {
 
   const exportCellValue = (row: VehicleSaleRow, key: ColumnKey): string => {
     switch (key) {
+      case 'coverPhoto': return row.coverPhotoUrl || '';
       case 'lotNumber': return row.lotNumber ? String(row.lotNumber) : '';
       case 'saleState': return SALE_STATE_BADGES[row.saleState].label;
       case 'session': return row.session?.name || '';

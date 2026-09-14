@@ -11,7 +11,7 @@ import { Badge, getVehicleDossierStatusBadge } from '../components/StatusBadge';
 import { Columns3, Download, X } from 'lucide-react';
 
 type ColumnKey =
-  | 'brand' | 'model' | 'registrationNumber' | 'seller' | 'submittedAt' | 'status'
+  | 'coverPhoto' | 'brand' | 'model' | 'registrationNumber' | 'seller' | 'submittedAt' | 'status'
   | 'year' | 'co2' | 'energyLabel' | 'vehicleGenre' | 'fiscalPower' | 'bodyType'
   | 'vin' | 'gearbox' | 'color' | 'mileage' | 'vrade' | 'procedure' | 'registrationCardAvailable';
 
@@ -22,6 +22,7 @@ interface TableColumn {
 }
 
 const TABLE_COLUMNS: TableColumn[] = [
+  { key: 'coverPhoto', label: 'Photo', width: 120 },
   { key: 'brand', label: 'Marque', width: 150 },
   { key: 'model', label: 'Modèle', width: 160 },
   { key: 'registrationNumber', label: 'Immat.', width: 130 },
@@ -43,8 +44,8 @@ const TABLE_COLUMNS: TableColumn[] = [
   { key: 'registrationCardAvailable', label: 'Carte grise disponible', width: 190 },
 ];
 
-const DEFAULT_COLUMNS: ColumnKey[] = ['brand', 'model', 'registrationNumber', 'seller', 'procedure', 'submittedAt', 'status'];
-const COLUMN_STORAGE_KEY = 'dealsautopro.admin.dossiers.columns';
+const DEFAULT_COLUMNS: ColumnKey[] = ['coverPhoto', 'brand', 'model', 'registrationNumber', 'seller', 'procedure', 'submittedAt', 'status'];
+const COLUMN_STORAGE_KEY = 'dealsautopro.admin.dossiers.columns.v2';
 
 interface DossierCounts {
   enAttente: number;
@@ -62,7 +63,6 @@ export default function AdminDossiersPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [draftFilters, setDraftFilters] = useState<Partial<Record<ColumnKey, string>>>({});
   const [appliedFilters, setAppliedFilters] = useState<Partial<Record<ColumnKey, string>>>({});
 
@@ -91,14 +91,6 @@ export default function AdminDossiersPage() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  const statusFilters = [
-    { value: 'all', label: `Tous ${counts.enAttente + counts.correction + counts.valide + counts.refuse}` },
-    { value: 'soumis', label: `En attente ${counts.enAttente}` },
-    { value: 'correction_demandee', label: `Correction demandée ${counts.correction}` },
-    { value: 'valide', label: `Validés ${counts.valide}` },
-    { value: 'refuse', label: `Rejetés ${counts.refuse}` },
-  ];
-
   const toggleColumn = (key: ColumnKey) => {
     setVisibleColumns((current) => {
       const next = current.includes(key) ? current.filter((column) => column !== key) : [...current, key];
@@ -119,6 +111,14 @@ export default function AdminDossiersPage() {
   const renderCell = (row: VehicleDossier, key: ColumnKey) => {
     const sellerName = row.seller?.companyName || (row.seller?.firstName ? `${row.seller.firstName} ${row.seller.lastName || ''}` : 'Vendeur');
     switch (key) {
+      case 'coverPhoto': {
+        const cover = row.photos?.find((photo) => photo.isCover) || row.photos?.[0];
+        const imageUrl = cover?.processedUrl || cover?.originalUrl;
+        return imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={imageUrl} alt={`${row.brand || ''} ${row.model || ''}`.trim() || 'Véhicule'} className="h-14 w-20 rounded-[7px] border border-[#e5e1d7] object-cover" />
+        ) : <div className="flex h-14 w-20 items-center justify-center rounded-[7px] bg-[#f1efe9] text-[10px] text-[#8a8270]">Aucune photo</div>;
+      }
       case 'brand': return row.brand || '—';
       case 'model': return row.model || '—';
       case 'registrationNumber': return row.registrationNumber || '—';
@@ -144,6 +144,10 @@ export default function AdminDossiersPage() {
   const exportCellValue = (row: VehicleDossier, key: ColumnKey): string => {
     const sellerName = row.seller?.companyName || [row.seller?.firstName, row.seller?.lastName].filter(Boolean).join(' ') || 'Vendeur';
     switch (key) {
+      case 'coverPhoto': {
+        const cover = row.photos?.find((photo) => photo.isCover) || row.photos?.[0];
+        return cover?.processedUrl || cover?.originalUrl || '';
+      }
       case 'brand': return row.brand || '';
       case 'model': return row.model || '';
       case 'registrationNumber': return row.registrationNumber || '';
@@ -173,7 +177,6 @@ export default function AdminDossiersPage() {
     try {
       const buildParams = (exportPage: number) => {
         const params = new URLSearchParams({ page: String(exportPage), limit: '100' });
-        if (statusFilter !== 'all') params.set('status', statusFilter);
         if (Object.keys(appliedFilters).length > 0) params.set('columnFilters', JSON.stringify(appliedFilters));
         return params;
       };
@@ -233,7 +236,6 @@ export default function AdminDossiersPage() {
       setFetching(true);
       try {
         const params = new URLSearchParams();
-        if (statusFilter !== 'all') params.set('status', statusFilter);
         if (Object.keys(appliedFilters).length > 0) params.set('columnFilters', JSON.stringify(appliedFilters));
         params.set('page', String(page));
         params.set('limit', '20');
@@ -252,7 +254,7 @@ export default function AdminDossiersPage() {
     };
 
     fetchDossiers();
-  }, [statusFilter, appliedFilters, page]);
+  }, [appliedFilters, page]);
 
   if (loading) {
     return (
@@ -290,27 +292,6 @@ export default function AdminDossiersPage() {
         <StatCard label="Correction demandée" value={counts.correction} bg="#16a34a" labelColor="#bbf7d0" valueColor="#ffffff" />
         <StatCard label="Validés" value={counts.valide} bg="#ea580c" labelColor="#fed7aa" valueColor="#ffffff" />
         <StatCard label="Rejetés" value={counts.refuse} bg="#9333ea" labelColor="#e9d5ff" valueColor="#ffffff" />
-      </div>
-
-      {/* Filter Pills */}
-      <div className="flex items-center gap-2.5 mb-4.5 overflow-x-auto pb-1">
-        {statusFilters.map((f) => {
-          const isActive = statusFilter === f.value;
-          return (
-            <button
-              key={f.value}
-              type="button"
-              onClick={() => { setStatusFilter(f.value); setPage(1); }}
-              className={`px-4 py-2 rounded-full font-semibold text-[12px] leading-none transition-all ${
-                isActive
-                  ? 'bg-[#d9704f] text-white font-bold'
-                  : 'bg-white border border-[#e2ddd1] text-[#4c5058] hover:bg-gray-50'
-              }`}
-            >
-              {f.label}
-            </button>
-          );
-        })}
       </div>
 
       {error && <Alert variant="error" className="mb-4">{error}</Alert>}

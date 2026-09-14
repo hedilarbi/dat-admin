@@ -361,7 +361,6 @@ export default function AdminDossierVehiculeDetailPage() {
   const sellerName = dossier.seller?.companyName || (dossier.seller?.firstName ? `${dossier.seller.firstName} ${dossier.seller.lastName || ''}` : 'Vendeur');
   const plate = dossier.registrationNumber || dossier.vin || '—';
   const reservePriceStr = dossier.reservePrice ? `${dossier.reservePrice.toLocaleString('fr-FR')} €` : 'Non renseigné';
-  const sessionVis = dossier.session ? `#${dossier.session}` : 'Non affectée';
   const missingReasonLabels: Record<string, string> = {
     declaration_perte: 'Déclaration de perte',
     declaration_vol: 'Déclaration de vol',
@@ -540,8 +539,8 @@ export default function AdminDossierVehiculeDetailPage() {
             {editingDossier ? <select value={String(editForm?.registrationCardAvailable ?? '')} onChange={(event) => updateEditField('registrationCardAvailable', event.target.value === 'true')} className="h-10 w-full rounded-[7px] border border-[#dcd7cb] bg-white px-2 text-sm"><option value="true">Oui</option><option value="false">Non</option></select> : <div className="font-semibold text-[14px] text-[#13243c]">{dossier.registrationCardAvailable === true ? 'Oui' : dossier.registrationCardAvailable === false ? 'Non' : 'Non renseigné'}</div>}
           </div>
           <div className="border border-[#eceadf] rounded-[10px] p-4">
-            <div className="font-medium text-[11px] uppercase tracking-[0.04em] text-[#5a5e66] mb-1.5">Prix de réserve / Session</div>
-            {editingDossier ? <div className="flex items-center gap-2"><input type="number" min="0" value={editForm?.reservePrice ?? ''} onChange={(event) => updateEditField('reservePrice', event.target.value === '' ? undefined : Number(event.target.value))} className="h-10 min-w-0 flex-1 rounded-[7px] border border-[#dcd7cb] px-2 text-sm" /><span className="text-xs text-[#5a5e66]">€ · {sessionVis}</span></div> : <div className="font-semibold text-[14px] text-[#13243c]">{reservePriceStr} · {sessionVis}</div>}
+            <div className="font-medium text-[11px] uppercase tracking-[0.04em] text-[#5a5e66] mb-1.5">Prix de réserve</div>
+            {editingDossier ? <div className="flex items-center gap-2"><input type="number" min="0" value={editForm?.reservePrice ?? ''} onChange={(event) => updateEditField('reservePrice', event.target.value === '' ? undefined : Number(event.target.value))} className="h-10 min-w-0 flex-1 rounded-[7px] border border-[#dcd7cb] px-2 text-sm" /><span className="text-xs text-[#5a5e66]">€</span></div> : <div className="font-semibold text-[14px] text-[#13243c]">{reservePriceStr}</div>}
           </div>
           {displayedDossier.registrationCardAvailable === false && (
             <>

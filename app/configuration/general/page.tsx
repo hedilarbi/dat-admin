@@ -10,7 +10,6 @@ interface GeneralConfig {
   commissionPaymentDeadlineHours: number;
   bankTransferDeadlineHours: number;
   vehicleListingAttempts: number;
-  nextWinnerAcceptanceDeadlineHours: number;
   accountReactivationFee: number;
   adminEmail: string;
 }
@@ -19,7 +18,6 @@ const EMPTY_FORM = {
   commissionPaymentDeadlineHours: '',
   bankTransferDeadlineHours: '',
   vehicleListingAttempts: '',
-  nextWinnerAcceptanceDeadlineHours: '',
   accountReactivationFee: '',
   adminEmail: '',
 };
@@ -55,13 +53,6 @@ const FIELDS: Array<{
     type: 'number',
   },
   {
-    key: 'nextWinnerAcceptanceDeadlineHours',
-    label: 'Délai du gagnant suivant',
-    unit: 'heures',
-    help: "Délai laissé au gagnant suivant pour accepter ou refuser le véhicule lorsqu'il lui est proposé.",
-    type: 'number',
-  },
-  {
     key: 'accountReactivationFee',
     label: 'Frais de réactivation de compte',
     unit: '€',
@@ -92,7 +83,6 @@ export default function GeneralConfigurationPage() {
           commissionPaymentDeadlineHours: String(config.commissionPaymentDeadlineHours),
           bankTransferDeadlineHours: String(config.bankTransferDeadlineHours),
           vehicleListingAttempts: String(config.vehicleListingAttempts),
-          nextWinnerAcceptanceDeadlineHours: String(config.nextWinnerAcceptanceDeadlineHours),
           accountReactivationFee: String(config.accountReactivationFee),
           adminEmail: config.adminEmail || '',
         };
@@ -148,7 +138,6 @@ export default function GeneralConfigurationPage() {
         commissionPaymentDeadlineHours: String(config.commissionPaymentDeadlineHours),
         bankTransferDeadlineHours: String(config.bankTransferDeadlineHours),
         vehicleListingAttempts: String(config.vehicleListingAttempts),
-        nextWinnerAcceptanceDeadlineHours: String(config.nextWinnerAcceptanceDeadlineHours),
         accountReactivationFee: String(config.accountReactivationFee),
         adminEmail: config.adminEmail || '',
       };

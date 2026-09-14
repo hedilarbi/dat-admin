@@ -37,7 +37,7 @@ interface CertificateRejection {
 
 interface Sale {
   _id: string;
-  status: 'en_cours' | 'cloturee' | 'sans_gagnant' | 'annulee' | 'en_attente_confirmation';
+  status: 'en_cours' | 'cloturee' | 'sans_gagnant' | 'annulee';
   currentStep: number;
   currentStepStartedAt: string | null;
   currentStepDueAt: string | null;
@@ -63,7 +63,6 @@ interface Sale {
 
 const SALE_STATUS_BADGES: Record<string, { label: string; color: string; bg: string }> = {
   en_cours: { label: 'En cours', color: '#ffffff', bg: '#f97316' },
-  en_attente_confirmation: { label: 'En attente confirmation', color: '#ffffff', bg: '#d9704f' },
   cloturee: { label: 'Clôturée', color: '#ffffff', bg: '#16a34a' },
   sans_gagnant: { label: 'Sans gagnant', color: '#ffffff', bg: '#6b7280' },
   annulee: { label: 'Annulée', color: '#ffffff', bg: '#b91c1c' },
@@ -419,7 +418,7 @@ export default function SaleDetailPage() {
           {sale.steps.map((key, index) => {
             const number = index + 1;
             const detail = stepDetails[key];
-            const isOngoing = sale.status === 'en_cours' || sale.status === 'en_attente_confirmation';
+            const isOngoing = sale.status === 'en_cours';
             const isCurrent = isOngoing && number === sale.currentStep;
             const isCompleted = number < sale.currentStep || sale.status === 'cloturee';
             const isActive = viewedStepIndex !== null ? viewedStepIndex === index : (sale.status === 'cloturee' ? false : number === sale.currentStep);

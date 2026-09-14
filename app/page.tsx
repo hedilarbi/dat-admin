@@ -53,6 +53,7 @@ export default function Home() {
   const { user, loading } = useUser();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [maxedOutVehicles, setMaxedOutVehicles] = useState<any[]>([]);
+  const [maxedOutThreshold, setMaxedOutThreshold] = useState(3);
   const [loadingStats, setLoadingStats] = useState(true);
 
   useEffect(() => {
@@ -66,10 +67,11 @@ export default function Home() {
       try {
         const [resStats, resMaxedOut] = await Promise.all([
           apiRequest('/admin/dashboard-stats').catch(() => null),
-          apiRequest('/admin/dossiers/tentatives-max?limit=5').catch(() => null)
+          apiRequest('/admin/vehicle-dossiers/tentatives-max?limit=5').catch(() => null)
         ]);
         if (resStats && resStats.data) setStats(resStats.data);
-        if (resMaxedOut && resMaxedOut.data) setMaxedOutVehicles(resMaxedOut.data);
+        if (resMaxedOut && resMaxedOut.vehicles) setMaxedOutVehicles(resMaxedOut.vehicles);
+        if (resMaxedOut && resMaxedOut.threshold) setMaxedOutThreshold(resMaxedOut.threshold);
       } catch (err) {
         console.error('Failed to fetch dashboard stats', err);
       } finally {
@@ -203,7 +205,7 @@ export default function Home() {
             <div className="mt-6 bg-[#fffbf0] border border-[#d4a017] rounded-[12px] overflow-hidden shadow-sm">
               <div className="bg-[#d4a017] px-6 py-3 flex items-center justify-between">
                 <h3 className="text-white font-bold uppercase tracking-wide text-[14px]">
-                  ⚠️ Véhicules Obstinés (3 tentatives ou plus)
+                  ⚠️ Véhicules Obstinés ({maxedOutThreshold} tentatives ou plus)
                 </h3>
                 <span className="bg-white text-[#d4a017] text-[12px] font-bold px-2.5 py-1 rounded-full">
                   {maxedOutVehicles.length} véhicule(s)
