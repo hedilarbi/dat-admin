@@ -161,7 +161,7 @@ export default function Home() {
             <div className="mt-8 bg-[#fff7f1] border border-[#B04A2C] rounded-[12px] overflow-hidden shadow-sm">
               <div className="bg-[#B04A2C] px-6 py-3 flex items-center justify-between">
                 <h3 className="text-white font-bold uppercase tracking-wide text-[14px]">
-                  🚨 Ventes Critiques (Étape 1 ou 2 · &gt; 80% du délai)
+                  🚨 Ventes critiques (Étape 1 ou 2 · entre 80% et 100% du délai)
                 </h3>
                 <span className="bg-white text-[#B04A2C] text-[12px] font-bold px-2.5 py-1 rounded-full">
                   {stats.pendingActions.latePayments.length} alerte(s)
