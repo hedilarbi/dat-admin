@@ -18,6 +18,7 @@ interface PaymentItem {
   saleId: string | null;
   vehicle: string | null;
   type: 'paiement_commission' | 'reactivation_compte';
+  debtReason?: 'commission_impayee' | 'penalite_etape_2' | null;
   typeLabel: string;
   amount: number;
   currency: string;
@@ -260,7 +261,7 @@ export default function AdminPaiementsPage() {
                       ) : isCommission ? (
                         <span className="text-gray-400 italic">Vente supprimée</span>
                       ) : (
-                        <span className="text-amber-700 font-medium">Déblocage après pénalité</span>
+                        <span className="text-amber-700 font-medium">{payment.debtReason === 'penalite_etape_2' ? 'Déblocage après pénalité étape 2' : 'Déblocage après commission impayée'}</span>
                       )}
                     </td>
 

@@ -54,9 +54,9 @@ const FIELDS: Array<{
   },
   {
     key: 'accountReactivationFee',
-    label: 'Frais de réactivation de compte',
+    label: 'Pénalité de l’étape 2',
     unit: '€',
-    help: "Frais de dossier que l'acheteur suspendu doit payer pour réactiver son compte.",
+    help: "Pénalité appliquée uniquement lorsque l’acheteur ne respecte pas le délai de virement à l’étape 2. À l’étape 1, il règle la commission réellement impayée.",
     type: 'number',
   },
   {
