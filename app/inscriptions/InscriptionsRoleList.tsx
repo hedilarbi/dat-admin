@@ -185,7 +185,7 @@ export default function InscriptionsRoleList({ role, title }: InscriptionsRoleLi
       {error && <Alert variant="error" className="mb-4">{error}</Alert>}
 
       <div className={`w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-[12px] border border-[#eceadf] bg-white shadow-sm transition-opacity ${fetching ? 'opacity-60' : ''}`}>
-        <table className="w-full table-fixed border-collapse" style={{ minWidth: tableMinWidth }}>
+        <table className="admin-striped-table w-full table-fixed border-collapse" style={{ minWidth: tableMinWidth }}>
           <colgroup>
             {TABLE_COLUMNS.map((column) => <col key={column.key} style={{ width: column.width }} />)}
             <col style={{ width: 130 }} />

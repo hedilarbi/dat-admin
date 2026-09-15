@@ -433,7 +433,7 @@ export default function CommissionsConfigurationPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left">
+            <table className="admin-striped-table w-full min-w-[720px] text-left">
               <thead>
                 <tr className="bg-[#fbfaf7] border-b border-[#efece3]">
                   <th className="px-5 py-3 text-[11px] font-bold uppercase tracking-wide text-[#4c5058]">Tranche</th>

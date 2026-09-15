@@ -178,7 +178,7 @@ export default function AdminPaiementsPage() {
       {/* Tableau des paiements */}
       <div className="bg-white border border-[#efece3] rounded-[14px] shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[900px]">
+          <table className="admin-striped-table w-full text-left border-collapse min-w-[900px]">
             <thead>
               <tr className="bg-[#f8f9fa] border-b border-[#efece3] text-[11px] font-extrabold uppercase tracking-wider text-[#5a5e66]">
                 <th className="py-4 px-5">Date & Heure</th>

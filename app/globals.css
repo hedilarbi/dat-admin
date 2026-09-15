@@ -62,4 +62,21 @@ body {
   .btn-success {
     @apply bg-[#16a34a] border-[#16a34a] text-white hover:bg-[#15803d] hover:border-[#15803d];
   }
+
+  /* Lecture ligne par ligne de tous les listings de l'administration. */
+  .admin-striped-table tbody > tr:nth-child(odd) {
+    background-color: #ffffff;
+  }
+
+  .admin-striped-table tbody > tr:nth-child(even) {
+    background-color: #f3f6f9;
+  }
+
+  .admin-striped-table tbody > tr {
+    transition: background-color 150ms ease;
+  }
+
+  .admin-striped-table tbody > tr:hover {
+    background-color: #fdf3ec;
+  }
 }

@@ -298,7 +298,7 @@ export default function AdminDossiersPage() {
 
       {/* Table */}
       <div className={`w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-[12px] border border-[#eceadf] bg-white shadow-xs transition-opacity ${fetching ? 'opacity-60' : ''}`}>
-        <table className="w-full table-fixed border-collapse" style={{ minWidth: tableMinWidth }}>
+        <table className="admin-striped-table w-full table-fixed border-collapse" style={{ minWidth: tableMinWidth }}>
           <colgroup>{selectedColumns.map((column) => <col key={column.key} style={{ width: column.width }} />)}<col style={{ width: 130 }} /></colgroup>
           <thead><tr className="border-b border-[#efece3] bg-[#f8f7f2] text-left text-[11px] font-semibold uppercase tracking-[0.05em] text-[#4c5058] align-top">
             {selectedColumns.map((column) => <th key={column.key} className="px-3 py-[14px]"><div className="h-4 whitespace-nowrap">{column.label}</div>{renderFilterInput(column)}</th>)}

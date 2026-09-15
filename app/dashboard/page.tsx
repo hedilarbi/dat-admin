@@ -105,7 +105,7 @@ export default function AdminDashboardPage() {
           </div>
         ) : (
           <div className="w-full overflow-x-auto">
-            <table className="w-full border-collapse" style={{ minWidth: 880 }}>
+            <table className="admin-striped-table w-full border-collapse" style={{ minWidth: 880 }}>
               <thead>
                 <tr className="border-b border-[#efece3] bg-[#f8f7f2] text-left text-[11px] font-semibold uppercase tracking-[0.05em] text-[#4c5058]">
                   <th className="px-5 py-3">Véhicule</th>

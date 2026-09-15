@@ -489,7 +489,7 @@ export default function SaleDetailPage() {
           <div className="border-b border-[#efece3] px-5 py-4">
             <h2 className="text-[15px] font-bold text-[#13243c]">Liste d&apos;attente ({sale.waitingList.length})</h2>
           </div>
-          <table className="w-full border-collapse">
+          <table className="admin-striped-table w-full border-collapse">
             <thead>
               <tr className="bg-[#f8f7f2] text-left text-[11px] font-semibold uppercase tracking-[0.05em] text-[#4c5058]">
                 <th className="px-5 py-3">Rang</th>
