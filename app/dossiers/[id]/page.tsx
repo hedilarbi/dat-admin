@@ -398,9 +398,7 @@ export default function AdminDossierVehiculeDetailPage() {
 
   const statusMeta = getStatusMeta(dossier.status);
   const isPendingDecision = dossier.status === 'soumis' || dossier.status === 'en_attente_validation';
-  const showDecisionHistory =
-    (dossier.status === 'refuse' || dossier.status === 'correction_demandee') &&
-    dossier.refusals?.length > 0;
+  const showDecisionHistory = dossier.refusals?.length > 0;
 
   return (
     <div className="flex-1 w-full bg-white text-black font-sans min-h-full px-6 pt-6 pb-24 sm:px-8 sm:pt-8 sm:pb-28 lg:px-10 lg:pt-10 lg:pb-32 flex flex-col xl:flex-row gap-8">
