@@ -169,29 +169,9 @@ export default function AdminDossierVehiculeDetailPage() {
   }, [params.id]);
 
   const toggleCause = (reason: RefusalReason) => {
-    const isChecked = selectedCauses.includes(reason.key);
-    let nextSelected: string[];
-
-    if (isChecked) {
-      nextSelected = selectedCauses.filter((k) => k !== reason.key);
-      if (reason.message?.fr && customComment.includes(reason.message.fr)) {
-        const updated = customComment
-          .replace(reason.message.fr, '')
-          .replace(/\n\n+/g, '\n')
-          .trim();
-        setCustomComment(updated);
-      }
-    } else {
-      nextSelected = [...selectedCauses, reason.key];
-      if (reason.message?.fr && !customComment.includes(reason.message.fr)) {
-        const updated = customComment
-          ? `${customComment}\n${reason.message.fr}`
-          : reason.message.fr;
-        setCustomComment(updated);
-      }
-    }
-
-    setSelectedCauses(nextSelected);
+    setSelectedCauses((current) => current.includes(reason.key)
+      ? current.filter((key) => key !== reason.key)
+      : [...current, reason.key]);
   };
 
   const handleDecisionSubmit = async () => {
@@ -442,6 +422,10 @@ export default function AdminDossierVehiculeDetailPage() {
             <div className="flex flex-col gap-3">
               {[...dossier.refusals].reverse().map((refusal, index) => {
                 const reasons = refusal.motifsLabels?.length ? refusal.motifsLabels : refusal.motifs;
+                const reasonTexts = new Set((reasons || []).map((reason) => reason.trim()));
+                const comment = refusal.comment?.split(/\r?\n/)
+                  .filter((line) => !reasonTexts.has(line.trim()))
+                  .join('\n').trim();
 
                 return (
                   <div
@@ -468,9 +452,9 @@ export default function AdminDossierVehiculeDetailPage() {
                       </ul>
                     )}
 
-                    {refusal.comment && (
+                    {comment && (
                       <p className="mt-3 whitespace-pre-wrap rounded-[8px] bg-white px-3 py-2 text-[13px] leading-relaxed text-[#3f302d]">
-                        {refusal.comment}
+                        {comment}
                       </p>
                     )}
                   </div>
