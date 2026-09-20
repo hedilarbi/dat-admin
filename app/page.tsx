@@ -9,6 +9,8 @@ import Link from 'next/link';
 interface DashboardStats {
   pendingActions: {
     users: number;
+    buyers: number;
+    sellers: number;
     dossiers: number;
     tickets: number;
     latePayments?: Array<{
@@ -112,18 +114,32 @@ export default function Home() {
           <h2 className="text-[16px] font-bold uppercase tracking-wider text-[#13243c] mb-4 border-b border-gray-200 pb-2">
             1. Actions Requises
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Utilisateurs en attente */}
-            <Link href="/inscriptions" className="bg-white rounded-[12px] border border-red-100 shadow-sm hover:shadow-md transition p-6 flex flex-col relative overflow-hidden group">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+            {/* Acheteurs en attente */}
+            <Link href="/inscriptions/acheteur" className="bg-white rounded-[12px] border border-red-100 shadow-sm hover:shadow-md transition p-6 flex flex-col relative overflow-hidden group">
               <div className="absolute top-0 left-0 w-1 h-full bg-red-500"></div>
               <div className="flex justify-between items-start mb-4">
-                <h3 className="text-[14px] font-bold text-gray-600 uppercase tracking-wide">Inscriptions en attente</h3>
+                <h3 className="text-[14px] font-bold text-gray-600 uppercase tracking-wide">Inscriptions acheteurs en attente</h3>
                 <span className="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold text-[14px]">
-                  {stats.pendingActions.users}
+                  {stats.pendingActions.buyers}
                 </span>
               </div>
               <p className="text-[12px] text-gray-400 mt-auto group-hover:text-red-500 transition font-medium">
-                → Gérer les utilisateurs
+                → Gérer les acheteurs
+              </p>
+            </Link>
+
+            {/* Vendeurs en attente */}
+            <Link href="/inscriptions/vendeur" className="bg-white rounded-[12px] border border-red-100 shadow-sm hover:shadow-md transition p-6 flex flex-col relative overflow-hidden group">
+              <div className="absolute top-0 left-0 w-1 h-full bg-red-500"></div>
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-[14px] font-bold text-gray-600 uppercase tracking-wide">Inscriptions vendeurs en attente</h3>
+                <span className="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold text-[14px]">
+                  {stats.pendingActions.sellers}
+                </span>
+              </div>
+              <p className="text-[12px] text-gray-400 mt-auto group-hover:text-red-500 transition font-medium">
+                → Gérer les vendeurs
               </p>
             </Link>
 
