@@ -3,10 +3,14 @@ import type { DossierPhoto } from '../../lib/vehicleDossier';
 
 interface PhotoTileProps {
   photo: DossierPhoto;
+  index: number;
+  total: number;
   onEditBlur: () => void;
+  onMove: (direction: -1 | 1) => void;
+  onRemove: () => void;
 }
 
-export default function PhotoTile({ photo, onEditBlur }: PhotoTileProps) {
+export default function PhotoTile({ photo, index, total, onEditBlur, onMove, onRemove }: PhotoTileProps) {
   const displayUrl = photo.processedUrl || photo.originalUrl;
 
   return (
@@ -21,7 +25,7 @@ export default function PhotoTile({ photo, onEditBlur }: PhotoTileProps) {
         )}
       </div>
 
-      <div className="p-2">
+      <div className="p-2 flex flex-col gap-1.5">
         <button
           type="button"
           onClick={onEditBlur}
@@ -29,6 +33,11 @@ export default function PhotoTile({ photo, onEditBlur }: PhotoTileProps) {
         >
           Flouter
         </button>
+        <div className="flex gap-1.5">
+          <button type="button" onClick={() => onMove(-1)} disabled={index === 0} aria-label="Déplacer vers la gauche" className="h-8 w-9 rounded-[7px] border border-[#dcd7cb] hover:bg-gray-50 disabled:opacity-30">←</button>
+          <button type="button" onClick={() => onMove(1)} disabled={index === total - 1} aria-label="Déplacer vers la droite" className="h-8 w-9 rounded-[7px] border border-[#dcd7cb] hover:bg-gray-50 disabled:opacity-30">→</button>
+          <button type="button" onClick={onRemove} className="h-8 flex-1 rounded-[7px] border border-red-200 text-[11px] font-semibold text-[#b3261e] hover:bg-red-50">Supprimer</button>
+        </div>
       </div>
     </div>
   );

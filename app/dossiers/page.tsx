@@ -224,7 +224,7 @@ export default function AdminDossiersPage() {
   const renderFilterInput = (column: TableColumn) => {
     const value = draftFilters[column.key] || '';
     const className = "mt-2 h-9 w-full rounded-[7px] border border-[#dcd7cb] bg-white px-2 text-[12px] font-normal normal-case tracking-normal text-[#13243c] focus:border-[#13243c] focus:outline-none";
-    if (column.key === 'status') return <select aria-label={`Filtrer par ${column.label}`} value={value} onChange={(event) => updateDraftFilter(column.key, event.target.value)} className={className}><option value="">Tous</option><option value="soumis">En attente</option><option value="correction_demandee">Correction demandée</option><option value="valide">Validé</option><option value="refuse">Rejeté</option></select>;
+    if (column.key === 'status') return <select aria-label={`Filtrer par ${column.label}`} value={value} onChange={(event) => updateDraftFilter(column.key, event.target.value)} className={className}><option value="">Tous</option><option value="brouillon">Brouillon</option><option value="soumis">Soumis</option><option value="en_attente_validation">En attente de validation</option><option value="correction_demandee">Correction demandée</option><option value="valide">Validé</option><option value="refuse">Rejeté</option><option value="annule_vendeur">Annulé vendeur</option></select>;
     if (column.key === 'registrationCardAvailable') return <select aria-label={`Filtrer par ${column.label}`} value={value} onChange={(event) => updateDraftFilter(column.key, event.target.value)} className={className}><option value="">Toutes</option><option value="true">Oui</option><option value="false">Non</option></select>;
     if (column.key === 'procedure') return <select aria-label={`Filtrer par ${column.label}`} value={value} onChange={(event) => updateDraftFilter(column.key, event.target.value)} className={className}><option value="">Toutes</option>{['VEI', 'VE', 'TNR', 'RIV / VE', 'RIV'].map((procedure) => <option key={procedure} value={procedure}>{procedure}</option>)}</select>;
     const type = column.key === 'submittedAt' ? 'date' : ['year', 'mileage'].includes(column.key) ? 'number' : 'text';
@@ -301,7 +301,14 @@ export default function AdminDossiersPage() {
         <table className="admin-striped-table w-full table-fixed border-collapse" style={{ minWidth: tableMinWidth }}>
           <colgroup>{selectedColumns.map((column) => <col key={column.key} style={{ width: column.width }} />)}<col style={{ width: 130 }} /></colgroup>
           <thead><tr className="border-b border-[#efece3] bg-[#f8f7f2] text-left text-[11px] font-semibold uppercase tracking-[0.05em] text-[#4c5058] align-top">
-            {selectedColumns.map((column) => <th key={column.key} className="px-3 py-[14px]"><div className="h-4 whitespace-nowrap">{column.label}</div>{renderFilterInput(column)}</th>)}
+            {selectedColumns.map((column) => (
+              <th key={column.key} className="px-3 py-[14px]">
+                <div className="h-4 whitespace-nowrap">{column.label}</div>
+                {column.key === 'coverPhoto'
+                  ? <div className="mt-2 h-9" aria-hidden="true" />
+                  : renderFilterInput(column)}
+              </th>
+            ))}
             <th className="px-3 py-[14px] text-right">
               <div className="h-4" aria-hidden="true" />
               <div className="mt-2 flex w-full flex-col items-stretch gap-1.5">

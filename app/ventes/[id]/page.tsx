@@ -37,7 +37,7 @@ interface CertificateRejection {
 
 interface Sale {
   _id: string;
-  status: 'en_cours' | 'cloturee' | 'sans_gagnant' | 'annulee';
+  status: 'en_cours' | 'suspendue' | 'cloturee' | 'sans_gagnant' | 'annulee';
   currentStep: number;
   currentStepStartedAt: string | null;
   currentStepDueAt: string | null;
@@ -59,6 +59,16 @@ interface Sale {
   seller: Party | null;
   session: { _id: string; name: string; endDate?: string; status?: string } | null;
   waitingList?: Array<{ buyer: Party | null; amount: number; rank: number; status: string; offeredAt?: string }>;
+  winningOffer?: string | { _id: string } | null;
+  offers?: Array<{
+    _id: string;
+    buyer: Party | null;
+    amount: number;
+    status: 'active' | 'annulee';
+    createdAt: string;
+    updatedAt: string;
+    revisions?: Array<unknown>;
+  }>;
 }
 
 const SALE_STATUS_BADGES: Record<string, { label: string; color: string; bg: string }> = {
@@ -180,6 +190,7 @@ export default function SaleDetailPage() {
   const canExtend = isOngoing && [1, 2].includes(sale.currentStep);
   const countdown = timeLeft(sale.currentStepDueAt);
   const vehicleTitle = [sale.vehicle?.brand, sale.vehicle?.model].filter(Boolean).join(' ') || 'Véhicule';
+  const winningOfferId = typeof sale.winningOffer === 'string' ? sale.winningOffer : sale.winningOffer?._id;
 
   const lastBuyerRejection = (sale.certificate?.rejections || [])
     .filter(r => r.rejectedBy === 'buyer')
@@ -481,6 +492,58 @@ export default function SaleDetailPage() {
             );
           })}
         </div>
+      </section>
+
+      {/* Toutes les offres déposées pendant la session */}
+      <section className="mb-5 overflow-hidden rounded-[12px] border border-[#eceadf] bg-white">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#efece3] px-5 py-4">
+          <div>
+            <h2 className="text-[15px] font-bold text-[#13243c]">Offres reçues pendant la session ({sale.offers?.length || 0})</h2>
+            <p className="mt-1 text-[11px] text-[#5a5e66]">{sale.session?.name || 'Session'} · Prix de réserve : {formatEuros(sale.reservePrice)}</p>
+          </div>
+          {winningOfferId && <span className="rounded-full bg-[#fff1e8] px-3 py-1.5 text-[11px] font-bold uppercase text-[#c65f37]">Offre en cours de vente</span>}
+        </div>
+
+        {!sale.offers || sale.offers.length === 0 ? (
+          <div className="p-8 text-center text-sm text-[#5a5e66]">Aucune offre n&apos;a été déposée pendant cette session.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="admin-striped-table w-full min-w-[760px] border-collapse">
+              <thead>
+                <tr className="bg-[#f8f7f2] text-left text-[11px] font-semibold uppercase tracking-[0.05em] text-[#4c5058]">
+                  <th className="px-5 py-3">Acheteur</th>
+                  <th className="px-5 py-3">Montant proposé</th>
+                  <th className="px-5 py-3">Réserve</th>
+                  <th className="px-5 py-3">Dépôt / modification</th>
+                  <th className="px-5 py-3">Statut</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sale.offers.map((offer) => {
+                  const isWinning = String(offer._id) === String(winningOfferId || '');
+                  const reachesReserve = sale.reservePrice == null || offer.amount >= sale.reservePrice;
+                  return (
+                    <tr key={offer._id} className={`border-t text-[13px] ${isWinning ? 'border-[#edb391] bg-[#fff7f1] shadow-[inset_4px_0_0_#d9704f]' : 'border-[#efece3]'}`}>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          <div>
+                            <div className="font-bold text-[#13243c]">{personName(offer.buyer)}</div>
+                            <div className="text-[11px] text-[#5a5e66]">{offer.buyer?.email || '—'}</div>
+                          </div>
+                          {isWinning && <span className="rounded-full bg-[#d9704f] px-2 py-1 text-[9px] font-extrabold uppercase tracking-wide text-white">Gagnante actuelle</span>}
+                        </div>
+                      </td>
+                      <td className={`px-5 py-4 text-base font-bold ${isWinning ? 'text-[#d9704f]' : 'text-[#13243c]'}`}>{formatEuros(offer.amount)}</td>
+                      <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${reachesReserve ? 'bg-[#e9f4ee] text-[#2f6f4f]' : 'bg-[#f1efe8] text-[#8a8270]'}`}>{reachesReserve ? 'Atteinte' : 'Non atteinte'}</span></td>
+                      <td className="px-5 py-4 text-[#5a5e66]">{formatDateTime(offer.updatedAt || offer.createdAt) || '—'}{offer.revisions?.length ? ` · ${offer.revisions.length} modification(s)` : ''}</td>
+                      <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${offer.status === 'active' ? 'bg-[#e9f4ee] text-[#2f6f4f]' : 'bg-[#fdece4] text-[#b91c1c]'}`}>{offer.status === 'active' ? 'Active' : 'Annulée'}</span></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       {/* Liste d'attente */}

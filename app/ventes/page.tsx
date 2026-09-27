@@ -8,7 +8,7 @@ import StatCard from '../components/StatCard';
 import SkeletonRows from '../components/SkeletonRows';
 import type { DossierSeller } from '../lib/vehicleDossier';
 import { Badge } from '../components/StatusBadge';
-import { Columns3, Download, X } from 'lucide-react';
+import { Columns3, Download, Eye, X } from 'lucide-react';
 
 /** États commerciaux calculés par le serveur (cf. adminVehicleSales.service.js). */
 type SaleState = 'en_attente' | 'en_enchere' | 'en_cours_vente' | 'vendu';
@@ -57,6 +57,7 @@ interface VehicleSaleRow {
   hasExpertReport?: boolean;
   updatedAt?: string;
   reservePrice?: number;
+  offerCount?: number;
   listingCount?: number;
   lotNumber?: number | null;
   seller?: DossierSeller;
@@ -65,9 +66,24 @@ interface VehicleSaleRow {
   sale: { _id: string; status: string; amount?: number; currentStep?: number; winner?: DossierSeller } | null;
 }
 
+interface VehicleOffer {
+  _id: string;
+  amount: number;
+  status: 'active' | 'annulee';
+  createdAt: string;
+  updatedAt: string;
+  revisions?: Array<unknown>;
+  buyer?: DossierSeller & { phone?: string; role?: string };
+}
+
+interface OffersModalData {
+  vehicle: { _id: string; brand?: string; model?: string; registrationNumber?: string; reservePrice?: number; session?: { name?: string } };
+  offers: VehicleOffer[];
+}
+
 type ColumnKey =
   | 'coverPhoto' | 'brand' | 'model' | 'registrationNumber' | 'seller' | 'saleState' | 'session'
-  | 'amount' | 'winner' | 'reservePrice' | 'listingCount' | 'procedure' | 'submittedAt'
+  | 'amount' | 'winner' | 'reservePrice' | 'offerCount' | 'listingCount' | 'procedure' | 'submittedAt'
   | 'year' | 'co2' | 'energyLabel' | 'vehicleGenre' | 'fiscalPower' | 'bodyType'
   | 'vin' | 'gearbox' | 'color' | 'mileage' | 'vrade' | 'registrationCardAvailable'
   | 'engine' | 'fuelType' | 'firstRegistrationDate' | 'registrationCountry'
@@ -93,6 +109,7 @@ const TABLE_COLUMNS: TableColumn[] = [
   { key: 'amount', label: 'Montant vente', width: 145 },
   { key: 'winner', label: 'Acheteur', width: 170 },
   { key: 'reservePrice', label: 'Prix de réserve', width: 150 },
+  { key: 'offerCount', label: "Nombre d'offres", width: 145 },
   { key: 'listingCount', label: 'Tentatives', width: 115 },
   { key: 'procedure', label: 'Procédure', width: 120 },
   { key: 'submittedAt', label: 'Soumis le', width: 130 },
@@ -136,12 +153,12 @@ const CARD_MISSING_REASON_LABELS: Record<string, string> = {
 
 const yesNo = (value?: boolean) => (value === undefined ? '—' : value ? 'Oui' : 'Non');
 
-const DEFAULT_COLUMNS: ColumnKey[] = ['coverPhoto', 'lotNumber', 'brand', 'model', 'registrationNumber', 'seller', 'session', 'amount', 'saleState'];
+const DEFAULT_COLUMNS: ColumnKey[] = ['coverPhoto', 'lotNumber', 'brand', 'model', 'registrationNumber', 'seller', 'session', 'offerCount', 'amount', 'saleState'];
 const COLUMN_STORAGE_KEY = 'dealsautopro.admin.ventes.columns.v2';
 
 // Colonnes calculées côté serveur : elles n'existent pas sur le dossier véhicule et ne
 // peuvent donc pas être filtrées par la même mécanique que les champs du document.
-const NON_FILTERABLE: ColumnKey[] = ['coverPhoto', 'amount', 'winner', 'photoCount', 'hasExpertReport', 'updatedAt'];
+const NON_FILTERABLE: ColumnKey[] = ['coverPhoto', 'amount', 'winner', 'offerCount', 'photoCount', 'hasExpertReport', 'updatedAt'];
 
 type StateCounts = Record<SaleState, number>;
 
@@ -169,6 +186,23 @@ export default function AdminVentesPage() {
   const [columnsModalOpen, setColumnsModalOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<ColumnKey[]>(DEFAULT_COLUMNS);
   const [exportingCsv, setExportingCsv] = useState(false);
+  const [offersModal, setOffersModal] = useState<OffersModalData | null>(null);
+  const [offersLoading, setOffersLoading] = useState(false);
+  const [offersError, setOffersError] = useState('');
+
+  const openOffersModal = async (vehicleId: string) => {
+    setOffersLoading(true);
+    setOffersError('');
+    try {
+      const response = await apiRequest(`/admin/vehicle-dossiers/${vehicleId}/offers`);
+      setOffersModal({ vehicle: response.vehicle, offers: response.offers || [] });
+    } catch (error: unknown) {
+      setOffersError(error instanceof Error ? error.message : 'Impossible de charger les offres.');
+      setOffersModal({ vehicle: { _id: vehicleId }, offers: [] });
+    } finally {
+      setOffersLoading(false);
+    }
+  };
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -221,6 +255,7 @@ export default function AdminVentesPage() {
       case 'amount': return formatEuros(row.sale?.amount);
       case 'winner': return row.sale?.winner ? personName(row.sale.winner) : '—';
       case 'reservePrice': return formatEuros(row.reservePrice);
+      case 'offerCount': return row.saleState === 'en_enchere' ? (row.offerCount ?? 0) : '—';
       case 'listingCount': return row.listingCount ?? 0;
       case 'procedure': return row.procedure || '—';
       case 'submittedAt': return row.submittedAt ? new Date(row.submittedAt).toLocaleDateString('fr-FR') : '—';
@@ -265,6 +300,7 @@ export default function AdminVentesPage() {
       case 'amount': return row.sale?.amount?.toString() || '';
       case 'winner': return row.sale?.winner ? personName(row.sale.winner) : '';
       case 'reservePrice': return row.reservePrice?.toString() || '';
+      case 'offerCount': return row.saleState === 'en_enchere' ? String(row.offerCount ?? 0) : '';
       case 'listingCount': return String(row.listingCount ?? 0);
       case 'seller': return personName(row.seller);
       case 'submittedAt': return row.submittedAt ? new Date(row.submittedAt).toLocaleDateString('fr-FR') : '';
@@ -419,7 +455,7 @@ export default function AdminVentesPage() {
 
       <div className={`w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-[12px] border border-[#eceadf] bg-white shadow-xs transition-opacity ${fetching ? 'opacity-60' : ''}`}>
         <table className="admin-striped-table w-full table-fixed border-collapse" style={{ minWidth: tableMinWidth }}>
-          <colgroup>{selectedColumns.map((column) => <col key={column.key} style={{ width: column.width }} />)}<col style={{ width: 130 }} /></colgroup>
+          <colgroup>{selectedColumns.map((column) => <col key={column.key} style={{ width: column.width }} />)}<col style={{ width: 190 }} /></colgroup>
           <thead><tr className="border-b border-[#efece3] bg-[#f8f7f2] text-left text-[11px] font-semibold uppercase tracking-[0.05em] text-[#4c5058] align-top">
             {selectedColumns.map((column) => <th key={column.key} className="px-3 py-[14px]"><div className="h-4 whitespace-nowrap">{column.label}</div>{renderFilterInput(column)}</th>)}
             <th className="px-3 py-[14px] text-right">
@@ -436,7 +472,13 @@ export default function AdminVentesPage() {
             ) : vehicles.map((row) => (
               <tr key={row._id} onClick={() => router.push(row.sale ? `/ventes/${row.sale._id}` : `/dossiers/${row._id}`)} className="cursor-pointer border-t border-[#efece3] text-[13px] font-medium leading-snug text-[#1a2230] transition first:border-t-0 hover:bg-[#fcfbf9]">
                 {selectedColumns.map((column) => <td key={column.key} className={`px-5 py-4 ${['registrationNumber', 'vin'].includes(column.key) ? 'font-mono' : ''}`}><div className="truncate">{renderCell(row, column.key)}</div></td>)}
-                <td className="px-5 py-4 text-right text-[12px] font-semibold text-[#d9704f] whitespace-nowrap hover:underline">{row.sale ? 'Vente →' : 'Dossier →'}</td>
+                <td className="px-5 py-4 text-right text-[12px] font-semibold whitespace-nowrap">
+                  {row.saleState === 'en_enchere' ? (
+                    <button type="button" onClick={(event) => { event.stopPropagation(); openOffersModal(row._id); }} className="inline-flex items-center gap-1.5 rounded-[7px] border border-[#d9704f] px-3 py-2 text-[#d9704f] hover:bg-[#fff7f1]">
+                      <Eye size={14} /> Voir les offres
+                    </button>
+                  ) : <span className="text-[#d9704f] hover:underline">{row.sale ? 'Vente →' : 'Dossier →'}</span>}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -463,6 +505,32 @@ export default function AdminVentesPage() {
             >
               Suivant →
             </button>
+          </div>
+        </div>
+      )}
+
+      {(offersModal || offersLoading) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#13243c]/55 p-4 backdrop-blur-sm" onClick={() => { if (!offersLoading) setOffersModal(null); }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="offers-modal-title" className="w-full max-w-[860px] overflow-hidden rounded-[16px] bg-white shadow-[0_26px_70px_rgba(0,0,0,0.3)]" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-start justify-between border-b border-[#efece3] px-6 py-5">
+              <div>
+                <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#a3987f]">Offres de la session</div>
+                <h2 id="offers-modal-title" className="mt-1 text-2xl font-bold uppercase text-[#13243c]">
+                  {offersModal ? [offersModal.vehicle.brand, offersModal.vehicle.model].filter(Boolean).join(' ') || 'Véhicule' : 'Chargement…'}
+                </h2>
+                {offersModal?.vehicle.session?.name && <p className="mt-1 text-xs text-[#5a5e66]">{offersModal.vehicle.session.name} · Prix de réserve : {formatEuros(offersModal.vehicle.reservePrice)}</p>}
+              </div>
+              <button type="button" disabled={offersLoading} onClick={() => setOffersModal(null)} className="flex h-9 w-9 items-center justify-center rounded-[8px] border border-[#dcd7cb] text-[#5a5e66] hover:bg-gray-50 disabled:opacity-40" aria-label="Fermer"><X size={17} /></button>
+            </div>
+            <div className="max-h-[65vh] overflow-auto">
+              {offersLoading ? <div className="p-12 text-center text-sm text-[#5a5e66]">Chargement des offres…</div>
+                : offersError ? <div className="m-5 rounded-[9px] bg-red-50 p-4 text-sm text-red-700">{offersError}</div>
+                : offersModal?.offers.length === 0 ? <div className="p-12 text-center text-sm text-[#5a5e66]">Aucune offre déposée sur ce véhicule.</div>
+                : <table className="w-full min-w-[680px] border-collapse text-left">
+                    <thead><tr className="bg-[#f8f7f2] text-[11px] font-bold uppercase text-[#5a5e66]"><th className="px-5 py-3">Acheteur</th><th className="px-5 py-3">Montant</th><th className="px-5 py-3">Dépôt / modification</th><th className="px-5 py-3">Statut</th></tr></thead>
+                    <tbody>{offersModal?.offers.map((offer) => <tr key={offer._id} className="border-t border-[#efece3] text-[13px]"><td className="px-5 py-4"><div className="font-bold text-[#13243c]">{personName(offer.buyer)}</div><div className="text-[11px] text-[#5a5e66]">{offer.buyer?.email || '—'}</div></td><td className="px-5 py-4 text-base font-bold text-[#13243c]">{formatEuros(offer.amount)}</td><td className="px-5 py-4 text-[#5a5e66]">{new Date(offer.updatedAt || offer.createdAt).toLocaleString('fr-FR')}{offer.revisions?.length ? ` · ${offer.revisions.length} modification(s)` : ''}</td><td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${offer.status === 'active' ? 'bg-[#e9f4ee] text-[#2f6f4f]' : 'bg-[#fdece4] text-[#b91c1c]'}`}>{offer.status === 'active' ? 'Active' : 'Annulée'}</span></td></tr>)}</tbody>
+                  </table>}
+            </div>
           </div>
         </div>
       )}

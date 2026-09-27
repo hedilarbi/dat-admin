@@ -33,10 +33,10 @@ const DEFAULT_VEHICLE_MESSAGES: Array<Omit<ReasonMessage, 'type'>> = [
   },
   {
     key: 'rapport_expertise_illisible',
-    label: { fr: "Rapport d'expertise illisible", en: 'Expert report unreadable' },
+    label: { fr: "Rapport d'expertise illisible / floutage à reprendre", en: 'Expert report unreadable / blur to fix' },
     message: {
-      fr: "Le rapport d'expertise sinistre téléversé n'est pas lisible ou incomplet. Merci de téléverser un fichier PDF original.",
-      en: 'The uploaded expert report is unreadable or incomplete. Please upload an original PDF file.',
+      fr: "Le rapport d'expertise sinistre téléversé n'est pas lisible, incomplet ou son floutage rend le document illisible. Merci de téléverser un fichier lisible et de reprendre le floutage si nécessaire.",
+      en: 'The uploaded expert report is unreadable, incomplete, or the blur makes the document unreadable. Please upload a readable file and adjust the blur if needed.',
     },
   },
   {

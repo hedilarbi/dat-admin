@@ -9,6 +9,7 @@ interface ConfirmModalProps {
   confirmLabel?: string;
   cancelLabel?: string;
   danger?: boolean;
+  loading?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
   /** Contenu optionnel inséré sous le message : options à cocher, précisions, etc. */
@@ -22,6 +23,7 @@ export default function ConfirmModal({
   confirmLabel = 'Confirmer',
   cancelLabel = 'Annuler',
   danger = false,
+  loading = false,
   onConfirm,
   onCancel,
   children,
@@ -29,7 +31,7 @@ export default function ConfirmModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-6" onClick={onCancel}>
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-6" onClick={() => !loading && onCancel()}>
       <div
         className="w-full max-w-[420px] bg-white rounded-[14px] shadow-[0_20px_60px_rgba(0,0,0,0.24)] p-6"
         onClick={e => e.stopPropagation()}
@@ -41,16 +43,18 @@ export default function ConfirmModal({
           <button
             type="button"
             onClick={onCancel}
-            className="btn btn-secondary"
+            disabled={loading}
+            className="btn btn-secondary disabled:opacity-50"
           >
             {cancelLabel}
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className={`px-4 py-2 text-white font-bold rounded-[8px] text-xs uppercase cursor-pointer transition ${danger ? 'bg-[#9a3b2f] hover:bg-red-800' : 'bg-[#2f6f4f] hover:bg-emerald-800'}`}
+            disabled={loading}
+            className={`px-4 py-2 text-white font-bold rounded-[8px] text-xs uppercase cursor-pointer transition disabled:opacity-50 ${danger ? 'bg-[#9a3b2f] hover:bg-red-800' : 'bg-[#2f6f4f] hover:bg-emerald-800'}`}
           >
-            {confirmLabel}
+            {loading ? 'Traitement…' : confirmLabel}
           </button>
         </div>
       </div>

@@ -216,12 +216,12 @@ export default function Home() {
             </div>
           )}
         
-          {/* Véhicules Obstinés */}
+          {/* Véhicules invendus */}
           {maxedOutVehicles && maxedOutVehicles.length > 0 && (
             <div className="mt-6 bg-[#fffbf0] border border-[#d4a017] rounded-[12px] overflow-hidden shadow-sm">
               <div className="bg-[#d4a017] px-6 py-3 flex items-center justify-between">
                 <h3 className="text-white font-bold uppercase tracking-wide text-[14px]">
-                  ⚠️ Véhicules Obstinés ({maxedOutThreshold} tentatives ou plus)
+                  ⚠️ Véhicules invendus ({maxedOutThreshold} tentatives ou plus)
                 </h3>
                 <span className="bg-white text-[#d4a017] text-[12px] font-bold px-2.5 py-1 rounded-full">
                   {maxedOutVehicles.length} véhicule(s)

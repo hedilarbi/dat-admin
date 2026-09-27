@@ -30,6 +30,12 @@ interface UserProfile {
   address?: { street: string; city: string; country: string; postalCode: string; };
   bankInfo?: { bankName: string; accountHolder: string; iban: string; bic: string; ribUrl?: string; };
   rejections?: RejectionEntry[];
+  suspension?: {
+    note?: string;
+    source?: 'admin' | 'system';
+    reason?: 'admin' | 'commission_impayee' | 'penalite_etape_2';
+    date?: string;
+  };
   createdAt: string;
 }
 
@@ -40,6 +46,48 @@ interface RejectionEntry {
   comment?: string;
   resubmittedAt?: string;
 }
+
+interface SaleRef { id: string; vehicleLabel: string | null }
+
+interface SuspensionEntry {
+  status: 'suspendu' | 'bloque';
+  source: 'admin' | 'system';
+  reason: 'admin' | 'commission_impayee' | 'penalite_etape_2';
+  note: string | null;
+  debtAmount: number | null;
+  sale: SaleRef | null;
+  startedAt: string | null;
+  endedAt: string | null;
+  endedBy: 'paiement' | 'admin' | null;
+}
+
+interface PenaltyPayment {
+  id: string;
+  amount: number;
+  debtReason: 'commission_impayee' | 'penalite_etape_2' | null;
+  status: 'paye' | 'en_attente' | 'echoue';
+  paidAt: string;
+  mode: 'checkout' | 'payment_intent';
+  stripeReference: string | null;
+  sale: SaleRef | null;
+}
+
+const SUSPENSION_REASON_LABELS: Record<SuspensionEntry['reason'], string> = {
+  admin: 'Décision de l’administration',
+  commission_impayee: 'Commission de l’étape 1 non réglée',
+  penalite_etape_2: 'Délai de virement de l’étape 2 dépassé',
+};
+
+const DEBT_REASON_LABELS: Record<string, string> = {
+  commission_impayee: 'Commission impayée (étape 1)',
+  penalite_etape_2: 'Pénalité (étape 2)',
+};
+
+const formatEuros = (amount: number) =>
+  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(amount);
+
+const formatDateTime = (value: string | null) =>
+  value ? new Date(value).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
 
 interface RefusalReason {
   key: string;
@@ -65,6 +113,19 @@ export default function InscriptionDetailPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [confirmAction, setConfirmAction] = useState<{ type: 'approve' } | { type: 'status'; status: 'valide' | 'suspendu' | 'bloque' } | null>(null);
+  const [suspensionNote, setSuspensionNote] = useState('');
+  const [suspensionHistory, setSuspensionHistory] = useState<SuspensionEntry[]>([]);
+  const [penaltyPayments, setPenaltyPayments] = useState<PenaltyPayment[]>([]);
+
+  const fetchSuspensionHistory = async (userId: string) => {
+    try {
+      const res = await apiRequest(`/admin/users/${userId}/suspension-history`);
+      setSuspensionHistory(res.suspensions || []);
+      setPenaltyPayments(res.penaltyPayments || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchUser = async () => {
     try {
@@ -91,7 +152,7 @@ export default function InscriptionDetailPage() {
   };
 
   useEffect(() => {
-    Promise.all([fetchUser(), fetchRefusalReasons()]).finally(() => {
+    Promise.all([fetchUser(), fetchRefusalReasons(), fetchSuspensionHistory(params.id as string)]).finally(() => {
       setLoading(false);
     });
   }, [params.id]);
@@ -143,15 +204,22 @@ export default function InscriptionDetailPage() {
 
   const handleUpdateUserStatus = async (newStatus: 'valide' | 'suspendu' | 'bloque') => {
     if (!selectedUser) return;
+    const note = suspensionNote.trim();
+    if (newStatus === 'suspendu' && selectedUser.role === 'acheteur' && !note) {
+      setError('La raison de suspension est obligatoire pour un compte acheteur.');
+      return;
+    }
     setError('');
     setActionLoading(newStatus);
     try {
-      await apiRequest(`/admin/users/${selectedUser._id}/status`, {
+      const res = await apiRequest(`/admin/users/${selectedUser._id}/status`, {
         method: 'PUT',
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ status: newStatus, suspensionNote: note || undefined })
       });
       setMessage('Statut mis à jour.');
-      setSelectedUser({ ...selectedUser, status: newStatus as any });
+      setSelectedUser(res.user || { ...selectedUser, status: newStatus as any });
+      setSuspensionNote('');
+      await fetchSuspensionHistory(selectedUser._id);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -237,6 +305,77 @@ export default function InscriptionDetailPage() {
                   </div>
                 );
               })}
+            </div>
+          </>
+        )}
+
+        {/* Historique des suspensions et des pénalités réglées */}
+        {(['valide', 'suspendu', 'bloque'].includes(selectedUser.status) || suspensionHistory.length > 0 || penaltyPayments.length > 0) && (
+          <>
+            <div className="font-bold text-xs tracking-[0.06em] uppercase text-[#4c5058] mb-3">
+              Historique des suspensions
+            </div>
+            <div className="flex flex-col gap-3 mb-7">
+              {suspensionHistory.length === 0 ? (
+                <div className="text-xs text-gray-400 italic p-4 bg-white border rounded-[10px]">Aucune suspension enregistrée.</div>
+              ) : suspensionHistory.map((entry, idx) => (
+                <div key={idx} className={`border bg-white rounded-[10px] p-[14px_16px] ${entry.endedAt ? 'border-[#eceadf]' : 'border-[#f0c9bd]'}`}>
+                  <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
+                    <span className="font-semibold text-xs text-[#13243c]">
+                      {entry.status === 'bloque' ? 'Blocage' : 'Suspension'} · {SUSPENSION_REASON_LABELS[entry.reason] || entry.reason}
+                    </span>
+                    {entry.endedAt ? (
+                      <span className="text-[11px] text-[#2f6f4f] font-medium">
+                        {entry.endedBy === 'paiement' ? 'Levée après paiement' : 'Réactivé par l’admin'} le {formatDateTime(entry.endedAt)}
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-[#fdece4] px-2 py-0.5 text-[10px] font-bold uppercase text-[#b04a2c]">En cours</span>
+                    )}
+                  </div>
+                  <div className="text-xs text-[#4c5058] space-y-0.5">
+                    <div>Début : {formatDateTime(entry.startedAt)} · {entry.source === 'system' ? 'Automatique' : 'Admin'}</div>
+                    {entry.debtAmount != null && <div>Montant à régler : <strong className="text-[#13243c]">{formatEuros(entry.debtAmount)}</strong></div>}
+                    {entry.sale && (
+                      <div>Vente : <Link href={`/ventes/${entry.sale.id}`} className="font-semibold text-[#d9704f] hover:underline">{entry.sale.vehicleLabel || 'Voir la vente'}</Link></div>
+                    )}
+                  </div>
+                  {entry.note && (
+                    <p className="text-xs italic text-[#5a5e66] bg-[#fbfaf7] border rounded p-2 mt-2">&quot;{entry.note}&quot;</p>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="font-bold text-xs tracking-[0.06em] uppercase text-[#4c5058] mb-3">
+              Pénalités réglées
+            </div>
+            <div className="mb-7">
+              {penaltyPayments.length === 0 ? (
+                <div className="text-xs text-gray-400 italic p-4 bg-white border rounded-[10px]">Aucun paiement de pénalité.</div>
+              ) : (
+                <div className="border border-[#eceadf] bg-white rounded-[10px] divide-y divide-[#f1efe8]">
+                  {penaltyPayments.map((payment) => (
+                    <div key={payment.id} className="flex flex-wrap items-center justify-between gap-2 p-[12px_16px]">
+                      <div className="min-w-0">
+                        <div className="font-semibold text-xs text-[#13243c]">
+                          {(payment.debtReason && DEBT_REASON_LABELS[payment.debtReason]) || 'Réactivation du compte'}
+                        </div>
+                        <div className="text-[11px] text-[#5a5e66] mt-0.5">
+                          {formatDateTime(payment.paidAt)}
+                          {payment.sale && <> · <Link href={`/ventes/${payment.sale.id}`} className="font-semibold text-[#d9704f] hover:underline">{payment.sale.vehicleLabel || 'Voir la vente'}</Link></>}
+                          {payment.stripeReference && <> · <span className="font-mono">{payment.stripeReference}</span></>}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-mono font-bold text-sm text-[#13243c]">{formatEuros(payment.amount)}</div>
+                        <div className={`text-[10px] font-bold uppercase ${payment.status === 'paye' ? 'text-[#2f6f4f]' : 'text-[#b04a2c]'}`}>
+                          {payment.status === 'paye' ? 'Payé' : payment.status === 'en_attente' ? 'En attente' : 'Échoué'}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </>
         )}
@@ -474,6 +613,17 @@ export default function InscriptionDetailPage() {
 
           {['valide', 'suspendu', 'bloque'].includes(selectedUser.status) && (
             <div className="border-t border-[#efece3] pt-4 space-y-2">
+              {selectedUser.status === 'suspendu' && selectedUser.suspension?.note && (
+                <div className="mb-3 rounded-[10px] border border-[#f0c9bd] bg-[#fff7f1] p-3">
+                  <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#b04a2c]">Raison de suspension</div>
+                  <div className="mt-1 text-[13px] font-semibold text-[#13243c]">{selectedUser.suspension.note}</div>
+                  {selectedUser.suspension.date && (
+                    <div className="mt-1 text-[11px] text-[#7a756a]">
+                      {selectedUser.suspension.source === 'system' ? 'Automatique' : 'Admin'} · {new Date(selectedUser.suspension.date).toLocaleString('fr-FR')}
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="text-xs text-gray-500 font-semibold mb-2">Actions de maintenance :</div>
 
               {(selectedUser.status === 'suspendu' || selectedUser.status === 'bloque') && (
@@ -526,13 +676,28 @@ export default function InscriptionDetailPage() {
         }
         confirmLabel={confirmAction?.type === 'approve' ? 'Valider' : 'Confirmer'}
         danger={confirmAction?.type === 'status' && confirmAction.status !== 'valide'}
-        onCancel={() => setConfirmAction(null)}
+        onCancel={() => { setConfirmAction(null); setSuspensionNote(''); }}
         onConfirm={() => {
           if (confirmAction?.type === 'approve') handleApproveUser();
           else if (confirmAction?.type === 'status') handleUpdateUserStatus(confirmAction.status);
-          setConfirmAction(null);
+          if (!(confirmAction?.type === 'status' && confirmAction.status === 'suspendu' && selectedUser?.role === 'acheteur' && !suspensionNote.trim())) {
+            setConfirmAction(null);
+          }
         }}
-      />
+      >
+        {confirmAction?.type === 'status' && confirmAction.status === 'suspendu' && selectedUser?.role === 'acheteur' && (
+          <div>
+            <label className="mb-1.5 block text-[12px] font-bold uppercase tracking-[0.05em] text-[#13243c]">Raison de suspension</label>
+            <textarea
+              value={suspensionNote}
+              onChange={(event) => setSuspensionNote(event.target.value)}
+              rows={4}
+              className="w-full rounded-[9px] border border-[#dcd7cb] bg-white p-3 text-sm text-[#13243c] outline-none focus:border-[#13243c]"
+              placeholder="Expliquez pourquoi ce compte acheteur est suspendu…"
+            />
+          </div>
+        )}
+      </ConfirmModal>
     </div>
   );
 }

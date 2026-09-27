@@ -62,7 +62,13 @@ export interface DossierSeller {
   firstName: string;
   lastName: string;
   phone?: string;
+  /** Statut du compte vendeur : un compte suspendu/bloqué ne peut plus mettre de véhicule en session. */
+  status?: string;
 }
+
+/** Un vendeur suspendu ou bloqué ne peut plus exposer ses véhicules en session. */
+export const isSellerSuspended = (seller?: Pick<DossierSeller, 'status'> | null) =>
+  seller?.status === 'suspendu' || seller?.status === 'bloque';
 
 export interface VehicleDossier {
   _id: string;

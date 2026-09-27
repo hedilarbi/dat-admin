@@ -141,11 +141,11 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
     const { type, metadata } = notification;
     if (type === 'registration_submitted' && metadata?.userId && metadata?.role) {
       router.push(`/inscription/${metadata.role}/${metadata.userId}`);
-    } else if ((type === 'vehicle_dossier_submitted' || type === 'vehicle_max_attempts_reached') && metadata?.dossierId) {
+    } else if ((type === 'vehicle_dossier_submitted' || type === 'vehicle_max_attempts_reached' || type === 'vehicle_dossier_updated_by_seller') && metadata?.dossierId) {
       router.push(`/dossiers/${metadata.dossierId}`);
     } else if (type === 'ticket_created' && metadata?.ticketId) {
       router.push(`/support?ticketId=${metadata.ticketId}`);
-    } else if ((type === 'late_payment_alert' || type === 'certificate_rejected') && metadata?.saleId) {
+    } else if ((type === 'late_payment_alert' || type === 'certificate_rejected' || type === 'seller_offer_accepted_early') && metadata?.saleId) {
       router.push(`/ventes/${metadata.saleId}`);
     }
   };

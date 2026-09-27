@@ -31,11 +31,12 @@ interface UserCounts {
   correction: number;
   valide: number;
   refuse: number;
+  suspendu: number;
   roleTotal: number;
   newThisMonth: number;
 }
 
-const EMPTY_COUNTS: UserCounts = { all: 0, acheteur: 0, vendeur: 0, enAttente: 0, correction: 0, valide: 0, refuse: 0, roleTotal: 0, newThisMonth: 0 };
+const EMPTY_COUNTS: UserCounts = { all: 0, acheteur: 0, vendeur: 0, enAttente: 0, correction: 0, valide: 0, refuse: 0, suspendu: 0, roleTotal: 0, newThisMonth: 0 };
 
 const PAGE_LIMIT = 20;
 
@@ -110,6 +111,7 @@ export default function InscriptionsRoleList({ role, title }: InscriptionsRoleLi
           <option value="correction">Correction demandée</option>
           <option value="valide">Validé</option>
           <option value="refuse">Refusé</option>
+          <option value="suspendu">Suspendu / Bloqué</option>
         </select>
       );
     }

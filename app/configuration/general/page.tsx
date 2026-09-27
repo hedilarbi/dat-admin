@@ -10,6 +10,7 @@ interface GeneralConfig {
   commissionPaymentDeadlineHours: number;
   bankTransferDeadlineHours: number;
   vehicleListingAttempts: number;
+  sellerOfferDecisionDeadlineHours: number;
   accountReactivationFee: number;
   adminEmail: string;
 }
@@ -18,6 +19,7 @@ const EMPTY_FORM = {
   commissionPaymentDeadlineHours: '',
   bankTransferDeadlineHours: '',
   vehicleListingAttempts: '',
+  sellerOfferDecisionDeadlineHours: '',
   accountReactivationFee: '',
   adminEmail: '',
 };
@@ -53,6 +55,13 @@ const FIELDS: Array<{
     type: 'number',
   },
   {
+    key: 'sellerOfferDecisionDeadlineHours',
+    label: 'Délai de décision vendeur',
+    unit: 'heures',
+    help: "Temps laissé au vendeur pour choisir une offre sous le prix de réserve ou remettre le véhicule en vente. Passé ce délai, le véhicule revient automatiquement en attente de session.",
+    type: 'number',
+  },
+  {
     key: 'accountReactivationFee',
     label: 'Pénalité de l’étape 2',
     unit: '€',
@@ -83,6 +92,7 @@ export default function GeneralConfigurationPage() {
           commissionPaymentDeadlineHours: String(config.commissionPaymentDeadlineHours),
           bankTransferDeadlineHours: String(config.bankTransferDeadlineHours),
           vehicleListingAttempts: String(config.vehicleListingAttempts),
+          sellerOfferDecisionDeadlineHours: String(config.sellerOfferDecisionDeadlineHours),
           accountReactivationFee: String(config.accountReactivationFee),
           adminEmail: config.adminEmail || '',
         };
@@ -138,6 +148,7 @@ export default function GeneralConfigurationPage() {
         commissionPaymentDeadlineHours: String(config.commissionPaymentDeadlineHours),
         bankTransferDeadlineHours: String(config.bankTransferDeadlineHours),
         vehicleListingAttempts: String(config.vehicleListingAttempts),
+        sellerOfferDecisionDeadlineHours: String(config.sellerOfferDecisionDeadlineHours),
         accountReactivationFee: String(config.accountReactivationFee),
         adminEmail: config.adminEmail || '',
       };

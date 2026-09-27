@@ -11,7 +11,7 @@ import ConfirmModal from '../../components/ConfirmModal';
 import BlurZoneEditor from '../../components/vehicleDossier/BlurZoneEditor';
 import PhotoTile from '../../components/vehicleDossier/PhotoTile';
 import type { BlurZone, DossierDocument, DossierPhoto, VehicleDossier } from '../../lib/vehicleDossier';
-import { ArrowLeft, Pencil, Save, X } from 'lucide-react';
+import { ArrowLeft, Pencil, Save, Trash2, X } from 'lucide-react';
 
 interface RefusalReason {
   key: string;
@@ -34,10 +34,10 @@ const FALLBACK_VEHICLE_REASONS: RefusalReason[] = [
   },
   {
     key: 'rapport_expertise_illisible',
-    label: { fr: "Rapport d'expertise illisible", en: 'Expert report unreadable' },
+    label: { fr: "Rapport d'expertise illisible / floutage à reprendre", en: 'Expert report unreadable / blur to fix' },
     message: {
-      fr: "Le rapport d'expertise sinistre téléversé n'est pas lisible ou incomplet. Merci de téléverser un fichier PDF original.",
-      en: 'The uploaded expert report is unreadable or incomplete. Please upload an original PDF file.',
+      fr: "Le rapport d'expertise sinistre téléversé n'est pas lisible, incomplet ou son floutage rend le document illisible. Merci de téléverser un fichier lisible et de reprendre le floutage si nécessaire.",
+      en: 'The uploaded expert report is unreadable, incomplete, or the blur makes the document unreadable. Please upload a readable file and adjust the blur if needed.',
     },
     type: 'vehicule',
   },
@@ -131,10 +131,11 @@ export default function AdminDossierVehiculeDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [confirmApprove, setConfirmApprove] = useState(false);
   const [editingDossier, setEditingDossier] = useState(false);
   const [editForm, setEditForm] = useState<VehicleDossier | null>(null);
   const [savingDossier, setSavingDossier] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deletingDossier, setDeletingDossier] = useState(false);
 
   const applyDossier = (d: VehicleDossier) => {
     setDossier(d);
@@ -282,7 +283,11 @@ export default function AdminDossierVehiculeDetailPage() {
     try {
       const res = await apiRequest(`/admin/vehicle-dossiers/${dossier._id}/media`, {
         method: 'PUT',
-        body: JSON.stringify({ photos, expertReport, additionalDocuments }),
+        body: JSON.stringify({
+          photos: photos.map((photo, index) => ({ ...photo, order: index, isCover: index === 0 })),
+          expertReport,
+          additionalDocuments,
+        }),
       });
       applyDossier(res.dossier);
       setMessage('Modifications médias enregistrées.');
@@ -291,6 +296,24 @@ export default function AdminDossierVehiculeDetailPage() {
     } finally {
       setSavingMedia(false);
     }
+  };
+
+  const movePhoto = (index: number, direction: -1 | 1) => {
+    setPhotos((current) => {
+      const destination = index + direction;
+      if (destination < 0 || destination >= current.length) return current;
+      const next = [...current];
+      [next[index], next[destination]] = [next[destination], next[index]];
+      return next.map((photo, photoIndex) => ({ ...photo, order: photoIndex, isCover: photoIndex === 0 }));
+    });
+    setMediaDirty(true);
+  };
+
+  const removePhoto = (index: number) => {
+    setPhotos((current) => current
+      .filter((_, photoIndex) => photoIndex !== index)
+      .map((photo, photoIndex) => ({ ...photo, order: photoIndex, isCover: photoIndex === 0 })));
+    setMediaDirty(true);
   };
 
   const startEditingDossier = () => {
@@ -323,6 +346,21 @@ export default function AdminDossierVehiculeDetailPage() {
       setError(err instanceof Error ? err.message : "Erreur lors de l'enregistrement du dossier.");
     } finally {
       setSavingDossier(false);
+    }
+  };
+
+  const handleDeleteDossier = async () => {
+    if (!dossier) return;
+    setDeletingDossier(true);
+    setError('');
+    try {
+      await apiRequest(`/admin/vehicle-dossiers/${dossier._id}`, { method: 'DELETE' });
+      router.push('/dossiers');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Impossible de supprimer le dossier.');
+      setConfirmDelete(false);
+    } finally {
+      setDeletingDossier(false);
     }
   };
 
@@ -377,7 +415,6 @@ export default function AdminDossierVehiculeDetailPage() {
   };
 
   const statusMeta = getStatusMeta(dossier.status);
-  const isPendingDecision = dossier.status === 'soumis' || dossier.status === 'en_attente_validation';
   const showDecisionHistory = dossier.refusals?.length > 0;
 
   return (
@@ -407,6 +444,7 @@ export default function AdminDossierVehiculeDetailPage() {
               <button type="button" onClick={() => { setEditingDossier(false); setEditForm(null); }} disabled={savingDossier} className="inline-flex h-10 items-center gap-2 rounded-[8px] border border-[#dcd7cb] bg-white px-4 text-[11px] font-bold uppercase text-[#13243c] hover:bg-gray-50 disabled:opacity-50"><X size={15} /> Annuler</button>
               <button type="button" onClick={handleSaveDossier} disabled={savingDossier} className="btn btn-primary gap-2 disabled:opacity-50">{savingDossier ? <Spinner /> : <Save size={15} />} Enregistrer</button>
             </> : <button type="button" onClick={startEditingDossier} className="btn btn-accent gap-2"><Pencil size={15} /> Modifier</button>}
+            <button type="button" onClick={() => setConfirmDelete(true)} disabled={deletingDossier} className="inline-flex h-10 items-center gap-2 rounded-[8px] border border-red-200 bg-white px-4 text-[11px] font-bold uppercase text-[#b3261e] hover:bg-red-50 disabled:opacity-50"><Trash2 size={15} /> Supprimer</button>
             <span className="font-semibold text-[11px] leading-none px-3.5 py-2 rounded-full whitespace-nowrap" style={{ background: statusMeta.bg, color: statusMeta.color }}>{statusMeta.label}</span>
           </div>
         </div>
@@ -586,7 +624,11 @@ export default function AdminDossierVehiculeDetailPage() {
               <PhotoTile
                 key={photo._id || index}
                 photo={photo}
+                index={index}
+                total={photos.length}
                 onEditBlur={() => setEditingTarget({ kind: 'photo', index })}
+                onMove={(direction) => movePhoto(index, direction)}
+                onRemove={() => removePhoto(index)}
               />
             ))}
           </div>
@@ -619,7 +661,7 @@ export default function AdminDossierVehiculeDetailPage() {
       </div>
 
       {/* Right Decision Panel */}
-      {isPendingDecision && (
+      {(
         <div className="w-full xl:w-[360px] shrink-0 pb-24 sm:pb-28 lg:pb-32">
           <div className="border border-[#eceadf] rounded-[14px] p-6 bg-white sticky top-6 shadow-xs">
           <div className="font-bold text-[12px] leading-none uppercase tracking-[0.06em] text-[#d9704f] mb-4">
@@ -661,7 +703,7 @@ export default function AdminDossierVehiculeDetailPage() {
                   : 'border-[#9a3b2f] bg-white text-[#9a3b2f] hover:bg-red-50'
               }`}
             >
-              Rejeter
+              Refuser
             </button>
           </div>
 
@@ -670,7 +712,7 @@ export default function AdminDossierVehiculeDetailPage() {
             <>
               <div className="mb-4">
                 <div className="font-semibold text-[12px] leading-none text-[#4c5058] mb-2">
-                  Motif(s) de {decision === 'correction' ? 'correction' : 'rejet'} (Configuration)
+                  Motif(s) de {decision === 'correction' ? 'correction' : 'rejet'} <span className="text-red-600">*</span>
                 </div>
 
                 <div className="border border-[#dcd7cb] rounded-[9px] overflow-hidden bg-white">
@@ -717,6 +759,9 @@ export default function AdminDossierVehiculeDetailPage() {
                     </div>
                   )}
                 </div>
+                {selectedCauses.length === 0 && (
+                  <p className="mt-1.5 text-[11px] font-semibold text-red-600">Sélectionnez au moins un motif obligatoire.</p>
+                )}
               </div>
 
               <div className="mb-4.5">
@@ -738,14 +783,14 @@ export default function AdminDossierVehiculeDetailPage() {
           <button
             type="button"
             onClick={handleDecisionSubmit}
-            disabled={actionLoading}
+            disabled={actionLoading || (decision !== 'valider' && selectedCauses.length === 0)}
             className="w-full h-[48px] rounded-[9px] bg-[#13243c] hover:bg-[#1a3050] text-white font-bold text-[13px] leading-[48px] uppercase tracking-[0.03em] text-center transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 mb-2.5 shadow-xs"
           >
             {actionLoading && <Spinner />}
             {decision === 'valider'
               ? 'Valider le dossier'
               : decision === 'rejeter'
-              ? 'Confirmer le rejet'
+              ? 'Confirmer le refus'
               : 'Envoyer la demande de correction'}
           </button>
 
@@ -757,12 +802,14 @@ export default function AdminDossierVehiculeDetailPage() {
       )}
 
       <ConfirmModal
-        open={confirmApprove}
-        title="Valider ce dossier"
-        message="Valider définitivement ce dossier véhicule ? Il pourra ensuite être programmé dans une session d'appel d'offres."
-        confirmLabel="Valider"
-        onCancel={() => setConfirmApprove(false)}
-        onConfirm={() => { setConfirmApprove(false); setDecision('valider'); handleDecisionSubmit(); }}
+        open={confirmDelete}
+        title="Supprimer ce dossier véhicule"
+        message="Cette suppression est définitive, quel que soit le statut actuel du dossier. Continuer ?"
+        confirmLabel="Supprimer"
+        danger
+        loading={deletingDossier}
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={handleDeleteDossier}
       />
 
       {editingTarget && editingItem && (

@@ -39,10 +39,13 @@ const FILTER_OPTIONS: FilterOption<string>[] = [
   { value: 'all', label: 'Toutes' },
   { value: 'registration_submitted', label: 'Inscriptions' },
   { value: 'vehicle_dossier_submitted', label: 'Dossiers véhicules' },
-  { value: 'vehicle_max_attempts_reached', label: 'Véhicules obstinés' },
+  { value: 'vehicle_dossier_updated_by_seller', label: 'Dossiers modifiés' },
+  { value: 'vehicle_dossier_deleted_by_seller', label: 'Dossiers supprimés' },
+  { value: 'vehicle_max_attempts_reached', label: 'Véhicules invendus' },
   { value: 'ticket_created', label: 'Support / Tickets' },
   { value: 'late_payment_alert', label: 'Retards paiement' },
   { value: 'certificate_rejected', label: 'Certificats refusés' },
+  { value: 'seller_offer_accepted_early', label: 'Offres retenues avant clôture' },
 ];
 
 export default function NotificationsCenterPage() {
@@ -132,7 +135,14 @@ export default function NotificationsCenterPage() {
         return {
           icon: AlertTriangle,
           bgColor: 'bg-orange-50 text-orange-600 border-orange-100',
-          label: 'Véhicule obstiné',
+          label: 'Véhicule invendu',
+        };
+      case 'vehicle_dossier_updated_by_seller':
+      case 'vehicle_dossier_deleted_by_seller':
+        return {
+          icon: FileText,
+          bgColor: 'bg-orange-50 text-orange-600 border-orange-100',
+          label: type === 'vehicle_dossier_updated_by_seller' ? 'Dossier modifié' : 'Dossier supprimé',
         };
       case 'ticket_created':
         return {
@@ -145,6 +155,12 @@ export default function NotificationsCenterPage() {
           icon: Clock,
           bgColor: 'bg-amber-50 text-amber-600 border-amber-100',
           label: 'Paiement retard',
+        };
+      case 'seller_offer_accepted_early':
+        return {
+          icon: AlertTriangle,
+          bgColor: 'bg-orange-50 text-orange-600 border-orange-100',
+          label: 'Offre retenue avant clôture',
         };
       case 'certificate_rejected':
         return {
@@ -166,13 +182,13 @@ export default function NotificationsCenterPage() {
     if (type === 'registration_submitted' && metadata?.userId && metadata?.role) {
       return `/inscription/${metadata.role}/${metadata.userId}`;
     }
-    if ((type === 'vehicle_dossier_submitted' || type === 'vehicle_max_attempts_reached') && metadata?.dossierId) {
+    if ((type === 'vehicle_dossier_submitted' || type === 'vehicle_max_attempts_reached' || type === 'vehicle_dossier_updated_by_seller') && metadata?.dossierId) {
       return `/dossiers/${metadata.dossierId}`;
     }
     if (type === 'ticket_created' && metadata?.ticketId) {
       return `/support?ticketId=${metadata.ticketId}`;
     }
-    if ((type === 'late_payment_alert' || type === 'certificate_rejected') && metadata?.saleId) {
+    if ((type === 'late_payment_alert' || type === 'certificate_rejected' || type === 'seller_offer_accepted_early') && metadata?.saleId) {
       return `/ventes/${metadata.saleId}`;
     }
     return null;

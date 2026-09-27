@@ -7,7 +7,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import Spinner from '../components/Spinner';
 import ConfirmModal from '../components/ConfirmModal';
 import CommissionTiersEditor from '../components/CommissionTiersEditor';
-import type { VehicleDossier } from '../lib/vehicleDossier';
+import { isSellerSuspended, type VehicleDossier } from '../lib/vehicleDossier';
 import {
   CommissionTier,
   CommissionTierDraft,
@@ -872,8 +872,12 @@ export default function AdminSessionsPage() {
                     </div>
                   ) : (
                     filteredAvailableVehicles
-                      .map((v) => (
-                        <div key={v._id} className="flex items-center gap-3 py-3">
+                      .map((v) => {
+                        // Le serveur refuse d'affecter le véhicule d'un vendeur suspendu : le libellé
+                        // explique pourquoi le bouton d'ajout est désactivé.
+                        const sellerSuspended = isSellerSuspended(v.seller);
+                        return (
+                        <div key={v._id} className={`flex items-center gap-3 py-3 ${sellerSuspended ? 'opacity-70' : ''}`}>
                           <VehicleCover vehicle={v} />
                           <div className="flex-1 min-w-0">
                             <div className="font-semibold text-[13px] leading-snug text-[#13243c] truncate">
@@ -882,19 +886,31 @@ export default function AdminSessionsPage() {
                             <div className="font-normal text-[11px] leading-snug text-[#5a5e66] mt-0.5 truncate">
                               {v.registrationNumber || v.vin || '—'} · {v.seller?.companyName || 'Vendeur'}
                             </div>
-                            <ListingAttemptsBadge count={v.listingCount || 0} />
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <ListingAttemptsBadge count={v.listingCount || 0} />
+                              {sellerSuspended && (
+                                <span
+                                  title="Le compte de ce vendeur est suspendu : ses véhicules ne peuvent pas être ajoutés à une session tant qu'il n'est pas réactivé."
+                                  className="mt-1 inline-flex items-center rounded-full bg-[#fdece4] px-2 py-0.5 text-[10px] font-bold uppercase text-[#b04a2c]"
+                                >
+                                  Compte vendeur suspendu
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <button type="button" onClick={() => openVehicleDetail(v)} className="w-9 h-9 rounded-[8px] border border-[#cbd5e1] flex items-center justify-center text-[#13243c] hover:bg-slate-50" title="Voir la fiche du véhicule"><Search size={16} /></button>
                           <button
                             type="button"
                             onClick={() => handleAddVehicleToSession(v._id)}
-                            className="w-8 h-8 rounded-[8px] border border-[#bcd8c8] flex items-center justify-center font-semibold text-[15px] text-[#2f6f4f] hover:bg-emerald-50 transition cursor-pointer shrink-0"
-                            title="Ajouter à la session"
+                            disabled={sellerSuspended}
+                            className="w-8 h-8 rounded-[8px] border border-[#bcd8c8] flex items-center justify-center font-semibold text-[15px] text-[#2f6f4f] hover:bg-emerald-50 transition cursor-pointer shrink-0 disabled:cursor-not-allowed disabled:border-[#e2ddd1] disabled:text-[#b8b2a4] disabled:hover:bg-transparent"
+                            title={sellerSuspended ? 'Compte vendeur suspendu : ajout à une session impossible' : 'Ajouter à la session'}
                           >
                             +
                           </button>
                         </div>
-                      ))
+                        );
+                      })
                   )}
                 </div>
               </div>
