@@ -282,6 +282,9 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
             <Link href="/ventes" className={`flex items-center px-[14px] py-[12px] rounded-[9px] font-[500] text-[14px] transition ${pathname === '/ventes' ? 'bg-[#1c3050] text-white font-semibold' : 'text-[#9fb0c9] hover:bg-[#1a2b44]'}`}>
               Ventes véhicules
             </Link>
+            <Link href="/vitrine" className={`flex items-center px-[14px] py-[12px] rounded-[9px] font-[500] text-[14px] transition ${pathname === '/vitrine' ? 'bg-[#1c3050] text-white font-semibold' : 'text-[#9fb0c9] hover:bg-[#1a2b44]'}`}>
+              Vitrine publique
+            </Link>
             <Link href="/sessions" className={`flex items-center px-[14px] py-[12px] rounded-[9px] font-[500] text-[14px] transition ${pathname === '/sessions' ? 'bg-[#1c3050] text-white font-semibold' : 'text-[#9fb0c9] hover:bg-[#1a2b44]'}`}>
               Sessions
             </Link>
