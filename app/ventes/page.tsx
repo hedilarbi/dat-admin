@@ -110,7 +110,7 @@ const TABLE_COLUMNS: TableColumn[] = [
   { key: 'winner', label: 'Acheteur', width: 170 },
   { key: 'reservePrice', label: 'Prix de réserve', width: 150 },
   { key: 'offerCount', label: "Nombre d'offres", width: 145 },
-  { key: 'listingCount', label: 'Tentatives', width: 115 },
+  { key: 'listingCount', label: 'Nombre de tentatives', width: 170 },
   { key: 'procedure', label: 'Procédure', width: 120 },
   { key: 'submittedAt', label: 'Soumis le', width: 130 },
   { key: 'year', label: 'Année', width: 100 },
@@ -153,8 +153,8 @@ const CARD_MISSING_REASON_LABELS: Record<string, string> = {
 
 const yesNo = (value?: boolean) => (value === undefined ? '—' : value ? 'Oui' : 'Non');
 
-const DEFAULT_COLUMNS: ColumnKey[] = ['coverPhoto', 'lotNumber', 'brand', 'model', 'registrationNumber', 'seller', 'session', 'offerCount', 'amount', 'saleState'];
-const COLUMN_STORAGE_KEY = 'dealsautopro.admin.ventes.columns.v2';
+const DEFAULT_COLUMNS: ColumnKey[] = ['coverPhoto', 'lotNumber', 'brand', 'model', 'registrationNumber', 'seller', 'session', 'offerCount', 'listingCount', 'amount', 'saleState'];
+const COLUMN_STORAGE_KEY = 'dealsautopro.admin.ventes.columns.v3';
 
 // Colonnes calculées côté serveur : elles n'existent pas sur le dossier véhicule et ne
 // peuvent donc pas être filtrées par la même mécanique que les champs du document.
@@ -238,6 +238,11 @@ export default function AdminVentesPage() {
 
   const selectedColumns = TABLE_COLUMNS.filter((column) => visibleColumns.includes(column.key));
   const tableMinWidth = selectedColumns.reduce((sum, column) => sum + column.width, 0) + 130;
+
+  const getRowDestination = (row: VehicleSaleRow) =>
+    row.saleState === 'en_attente' || !row.sale
+      ? `/dossiers/${row._id}`
+      : `/ventes/${row.sale._id}`;
 
   const renderCell = (row: VehicleSaleRow, key: ColumnKey) => {
     switch (key) {
@@ -470,14 +475,14 @@ export default function AdminVentesPage() {
             {vehicles.length === 0 ? (
               <tr><td colSpan={selectedColumns.length + 1} className="p-10 text-center text-sm font-medium text-[#5a5e66]">Aucun véhicule trouvé.</td></tr>
             ) : vehicles.map((row) => (
-              <tr key={row._id} onClick={() => router.push(row.sale ? `/ventes/${row.sale._id}` : `/dossiers/${row._id}`)} className="cursor-pointer border-t border-[#efece3] text-[13px] font-medium leading-snug text-[#1a2230] transition first:border-t-0 hover:bg-[#fcfbf9]">
+              <tr key={row._id} onClick={() => router.push(getRowDestination(row))} className="cursor-pointer border-t border-[#efece3] text-[13px] font-medium leading-snug text-[#1a2230] transition first:border-t-0 hover:bg-[#fcfbf9]">
                 {selectedColumns.map((column) => <td key={column.key} className={`px-5 py-4 ${['registrationNumber', 'vin'].includes(column.key) ? 'font-mono' : ''}`}><div className="truncate">{renderCell(row, column.key)}</div></td>)}
                 <td className="px-5 py-4 text-right text-[12px] font-semibold whitespace-nowrap">
                   {row.saleState === 'en_enchere' ? (
                     <button type="button" onClick={(event) => { event.stopPropagation(); openOffersModal(row._id); }} className="inline-flex items-center gap-1.5 rounded-[7px] border border-[#d9704f] px-3 py-2 text-[#d9704f] hover:bg-[#fff7f1]">
                       <Eye size={14} /> Voir les offres
                     </button>
-                  ) : <span className="text-[#d9704f] hover:underline">{row.sale ? 'Vente →' : 'Dossier →'}</span>}
+                  ) : <span className="text-[#d9704f] hover:underline">{row.saleState === 'en_attente' || !row.sale ? 'Dossier →' : 'Vente →'}</span>}
                 </td>
               </tr>
             ))}
