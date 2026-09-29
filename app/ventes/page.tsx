@@ -11,11 +11,12 @@ import { Badge } from '../components/StatusBadge';
 import { Columns3, Download, Eye, X } from 'lucide-react';
 
 /** États commerciaux calculés par le serveur (cf. adminVehicleSales.service.js). */
-type SaleState = 'en_attente' | 'en_enchere' | 'en_cours_vente' | 'vendu';
+type SaleState = 'en_attente' | 'en_enchere' | 'decision_vendeur' | 'en_cours_vente' | 'vendu';
 
 const SALE_STATE_BADGES: Record<SaleState, { label: string; color: string; bg: string }> = {
   en_attente: { label: 'En attente', color: '#ffffff', bg: '#6b7280' },
   en_enchere: { label: 'En enchère', color: '#ffffff', bg: '#2563eb' },
+  decision_vendeur: { label: 'Décision vendeur requise', color: '#ffffff', bg: '#b45309' },
   en_cours_vente: { label: 'En cours de vente', color: '#ffffff', bg: '#f97316' },
   vendu: { label: 'Vendu', color: '#ffffff', bg: '#16a34a' },
 };
@@ -73,13 +74,34 @@ interface VehicleOffer {
   createdAt: string;
   updatedAt: string;
   revisions?: Array<unknown>;
-  buyer?: DossierSeller & { phone?: string; role?: string };
+  buyer?: DossierSeller & { phone?: string; role?: string; status?: string };
+  rank?: number | null;
+  attributionStatus?: string | null;
+  discardReason?: string | null;
+  isWinningOffer?: boolean;
+  isCurrentWinner?: boolean;
 }
 
 interface OffersModalData {
   vehicle: { _id: string; brand?: string; model?: string; registrationNumber?: string; reservePrice?: number; session?: { name?: string } };
   offers: VehicleOffer[];
 }
+
+const DISCARD_REASON_LABELS: Record<string, string> = {
+  commission_delai_depasse: 'Commission non réglée dans le délai',
+  virement_carte_grise_delai_depasse: 'Virement non effectué dans le délai',
+  annulation_volontaire: 'Achat annulé par l’acheteur',
+  compte_suspendu: 'Compte suspendu',
+  suspension_admin: 'Suspension administrative',
+};
+
+const offerOutcome = (offer: VehicleOffer) => {
+  if (offer.isCurrentWinner) return { label: 'Acheteur retenu', className: 'bg-[#e9f4ee] text-[#2f6f4f]' };
+  if (offer.discardReason) return { label: DISCARD_REASON_LABELS[offer.discardReason] || offer.discardReason.replaceAll('_', ' '), className: 'bg-[#fdece4] text-[#b91c1c]' };
+  if (offer.attributionStatus === 'ecarte') return { label: 'Écartée', className: 'bg-[#fdece4] text-[#b91c1c]' };
+  if (offer.isWinningOffer || offer.attributionStatus === 'gagnant') return { label: 'Déjà attribuée', className: 'bg-[#fff1e8] text-[#c65f37]' };
+  return { label: offer.status === 'active' ? 'Disponible' : 'Annulée', className: offer.status === 'active' ? 'bg-[#eef1f5] text-[#13243c]' : 'bg-[#fdece4] text-[#b91c1c]' };
+};
 
 type ColumnKey =
   | 'coverPhoto' | 'brand' | 'model' | 'registrationNumber' | 'seller' | 'saleState' | 'session'
@@ -172,7 +194,7 @@ export default function AdminVentesPage() {
   const router = useRouter();
 
   const [vehicles, setVehicles] = useState<VehicleSaleRow[]>([]);
-  const [counts, setCounts] = useState<StateCounts>({ en_attente: 0, en_enchere: 0, en_cours_vente: 0, vendu: 0 });
+  const [counts, setCounts] = useState<StateCounts>({ en_attente: 0, en_enchere: 0, decision_vendeur: 0, en_cours_vente: 0, vendu: 0 });
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -260,7 +282,7 @@ export default function AdminVentesPage() {
       case 'amount': return formatEuros(row.sale?.amount);
       case 'winner': return row.sale?.winner ? personName(row.sale.winner) : '—';
       case 'reservePrice': return formatEuros(row.reservePrice);
-      case 'offerCount': return row.saleState === 'en_enchere' ? (row.offerCount ?? 0) : '—';
+      case 'offerCount': return ['en_enchere', 'decision_vendeur', 'en_cours_vente'].includes(row.saleState) ? (row.offerCount ?? 0) : '—';
       case 'listingCount': return row.listingCount ?? 0;
       case 'procedure': return row.procedure || '—';
       case 'submittedAt': return row.submittedAt ? new Date(row.submittedAt).toLocaleDateString('fr-FR') : '—';
@@ -305,7 +327,7 @@ export default function AdminVentesPage() {
       case 'amount': return row.sale?.amount?.toString() || '';
       case 'winner': return row.sale?.winner ? personName(row.sale.winner) : '';
       case 'reservePrice': return row.reservePrice?.toString() || '';
-      case 'offerCount': return row.saleState === 'en_enchere' ? String(row.offerCount ?? 0) : '';
+      case 'offerCount': return ['en_enchere', 'decision_vendeur', 'en_cours_vente'].includes(row.saleState) ? String(row.offerCount ?? 0) : '';
       case 'listingCount': return String(row.listingCount ?? 0);
       case 'seller': return personName(row.seller);
       case 'submittedAt': return row.submittedAt ? new Date(row.submittedAt).toLocaleDateString('fr-FR') : '';
@@ -385,7 +407,7 @@ export default function AdminVentesPage() {
 
     const value = draftFilters[column.key] || '';
     const className = "mt-2 h-9 w-full rounded-[7px] border border-[#dcd7cb] bg-white px-2 text-[12px] font-normal normal-case tracking-normal text-[#13243c] focus:border-[#13243c] focus:outline-none";
-    if (column.key === 'saleState') return <select aria-label={`Filtrer par ${column.label}`} value={value} onChange={(event) => updateDraftFilter(column.key, event.target.value)} className={className}><option value="">Tous</option><option value="en_attente">En attente</option><option value="en_enchere">En enchère</option><option value="en_cours_vente">En cours de vente</option><option value="vendu">Vendu</option></select>;
+    if (column.key === 'saleState') return <select aria-label={`Filtrer par ${column.label}`} value={value} onChange={(event) => updateDraftFilter(column.key, event.target.value)} className={className}><option value="">Tous</option><option value="en_attente">En attente</option><option value="en_enchere">En enchère</option><option value="decision_vendeur">Décision vendeur requise</option><option value="en_cours_vente">En cours de vente</option><option value="vendu">Vendu</option></select>;
     if (column.key === 'registrationCardAvailable' || column.key === 'identificationSheetAvailable') return <select aria-label={`Filtrer par ${column.label}`} value={value} onChange={(event) => updateDraftFilter(column.key, event.target.value)} className={className}><option value="">Toutes</option><option value="true">Oui</option><option value="false">Non</option></select>;
     if (column.key === 'registrationCardMissingReasons') return <select aria-label={`Filtrer par ${column.label}`} value={value} onChange={(event) => updateDraftFilter(column.key, event.target.value)} className={className}><option value="">Tous</option>{Object.entries(CARD_MISSING_REASON_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select>;
     if (column.key === 'procedure') return <select aria-label={`Filtrer par ${column.label}`} value={value} onChange={(event) => updateDraftFilter(column.key, event.target.value)} className={className}><option value="">Toutes</option>{['VEI', 'VE', 'TNR', 'RIV / VE', 'RIV'].map((procedure) => <option key={procedure} value={procedure}>{procedure}</option>)}</select>;
@@ -448,9 +470,10 @@ export default function AdminVentesPage() {
         </div>
       </div>
 
-      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="En attente" value={counts.en_attente} bg="#2563eb" labelColor="#bfdbfe" valueColor="#ffffff" />
         <StatCard label="En enchère" value={counts.en_enchere} bg="#16a34a" labelColor="#bbf7d0" valueColor="#ffffff" />
+        <StatCard label="Décision vendeur requise" value={counts.decision_vendeur} bg="#b45309" labelColor="#fef3c7" valueColor="#ffffff" />
         <StatCard label="En cours de vente" value={counts.en_cours_vente} bg="#ea580c" labelColor="#fed7aa" valueColor="#ffffff" />
         <StatCard label="Vendus" value={counts.vendu} bg="#9333ea" labelColor="#e9d5ff" valueColor="#ffffff" />
       </div>
@@ -478,7 +501,7 @@ export default function AdminVentesPage() {
               <tr key={row._id} onClick={() => router.push(getRowDestination(row))} className="cursor-pointer border-t border-[#efece3] text-[13px] font-medium leading-snug text-[#1a2230] transition first:border-t-0 hover:bg-[#fcfbf9]">
                 {selectedColumns.map((column) => <td key={column.key} className={`px-5 py-4 ${['registrationNumber', 'vin'].includes(column.key) ? 'font-mono' : ''}`}><div className="truncate">{renderCell(row, column.key)}</div></td>)}
                 <td className="px-5 py-4 text-right text-[12px] font-semibold whitespace-nowrap">
-                  {row.saleState === 'en_enchere' ? (
+                  {['en_enchere', 'decision_vendeur', 'en_cours_vente'].includes(row.saleState) ? (
                     <button type="button" onClick={(event) => { event.stopPropagation(); openOffersModal(row._id); }} className="inline-flex items-center gap-1.5 rounded-[7px] border border-[#d9704f] px-3 py-2 text-[#d9704f] hover:bg-[#fff7f1]">
                       <Eye size={14} /> Voir les offres
                     </button>
@@ -519,7 +542,7 @@ export default function AdminVentesPage() {
           <div role="dialog" aria-modal="true" aria-labelledby="offers-modal-title" className="w-full max-w-[860px] overflow-hidden rounded-[16px] bg-white shadow-[0_26px_70px_rgba(0,0,0,0.3)]" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-start justify-between border-b border-[#efece3] px-6 py-5">
               <div>
-                <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#a3987f]">Offres de la session</div>
+                <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#a3987f]">Historique des offres de la session</div>
                 <h2 id="offers-modal-title" className="mt-1 text-2xl font-bold uppercase text-[#13243c]">
                   {offersModal ? [offersModal.vehicle.brand, offersModal.vehicle.model].filter(Boolean).join(' ') || 'Véhicule' : 'Chargement…'}
                 </h2>
@@ -531,9 +554,20 @@ export default function AdminVentesPage() {
               {offersLoading ? <div className="p-12 text-center text-sm text-[#5a5e66]">Chargement des offres…</div>
                 : offersError ? <div className="m-5 rounded-[9px] bg-red-50 p-4 text-sm text-red-700">{offersError}</div>
                 : offersModal?.offers.length === 0 ? <div className="p-12 text-center text-sm text-[#5a5e66]">Aucune offre déposée sur ce véhicule.</div>
-                : <table className="w-full min-w-[680px] border-collapse text-left">
-                    <thead><tr className="bg-[#f8f7f2] text-[11px] font-bold uppercase text-[#5a5e66]"><th className="px-5 py-3">Acheteur</th><th className="px-5 py-3">Montant</th><th className="px-5 py-3">Dépôt / modification</th><th className="px-5 py-3">Statut</th></tr></thead>
-                    <tbody>{offersModal?.offers.map((offer) => <tr key={offer._id} className="border-t border-[#efece3] text-[13px]"><td className="px-5 py-4"><div className="font-bold text-[#13243c]">{personName(offer.buyer)}</div><div className="text-[11px] text-[#5a5e66]">{offer.buyer?.email || '—'}</div></td><td className="px-5 py-4 text-base font-bold text-[#13243c]">{formatEuros(offer.amount)}</td><td className="px-5 py-4 text-[#5a5e66]">{new Date(offer.updatedAt || offer.createdAt).toLocaleString('fr-FR')}{offer.revisions?.length ? ` · ${offer.revisions.length} modification(s)` : ''}</td><td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${offer.status === 'active' ? 'bg-[#e9f4ee] text-[#2f6f4f]' : 'bg-[#fdece4] text-[#b91c1c]'}`}>{offer.status === 'active' ? 'Active' : 'Annulée'}</span></td></tr>)}</tbody>
+                : <table className="w-full min-w-[980px] border-collapse text-left">
+                    <thead><tr className="bg-[#f8f7f2] text-[11px] font-bold uppercase text-[#5a5e66]"><th className="px-5 py-3">Rang</th><th className="px-5 py-3">Acheteur</th><th className="px-5 py-3">Montant</th><th className="px-5 py-3">Compte</th><th className="px-5 py-3">État de l’offre</th><th className="px-5 py-3">Dépôt / modification</th></tr></thead>
+                    <tbody>{offersModal?.offers.map((offer, index) => {
+                      const outcome = offerOutcome(offer);
+                      const accountSuspended = ['suspendu', 'bloque'].includes(offer.buyer?.status || '');
+                      return <tr key={offer._id} className="border-t border-[#efece3] text-[13px]">
+                        <td className="px-5 py-4 font-mono font-bold text-[#13243c]">#{offer.rank || index + 1}</td>
+                        <td className="px-5 py-4"><div className="font-bold text-[#13243c]">{personName(offer.buyer)}</div><div className="text-[11px] text-[#5a5e66]">{offer.buyer?.email || '—'}</div></td>
+                        <td className="px-5 py-4 text-base font-bold text-[#13243c]">{formatEuros(offer.amount)}</td>
+                        <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${accountSuspended ? 'bg-[#fdece4] text-[#b91c1c]' : 'bg-[#e9f4ee] text-[#2f6f4f]'}`}>{accountSuspended ? offer.buyer?.status : 'Actif'}</span></td>
+                        <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${outcome.className}`}>{outcome.label}</span></td>
+                        <td className="px-5 py-4 text-[#5a5e66]">{new Date(offer.updatedAt || offer.createdAt).toLocaleString('fr-FR')}{offer.revisions?.length ? ` · ${offer.revisions.length} modification(s)` : ''}</td>
+                      </tr>;
+                    })}</tbody>
                   </table>}
             </div>
           </div>
