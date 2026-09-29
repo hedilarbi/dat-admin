@@ -261,7 +261,7 @@ export default function AdminPaiementsPage() {
                       ) : isCommission ? (
                         <span className="text-gray-400 italic">Vente supprimée</span>
                       ) : (
-                        <span className="text-amber-700 font-medium">{payment.debtReason === 'penalite_etape_2' ? 'Déblocage après pénalité étape 2' : 'Déblocage après commission impayée'}</span>
+                        <span className="text-amber-700 font-medium">{payment.debtReason === 'penalite_etape_2' ? 'Déblocage après règlement du montant étape 2' : 'Déblocage après commission impayée'}</span>
                       )}
                     </td>
 

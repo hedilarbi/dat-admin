@@ -80,7 +80,7 @@ const SUSPENSION_REASON_LABELS: Record<SuspensionEntry['reason'], string> = {
 
 const DEBT_REASON_LABELS: Record<string, string> = {
   commission_impayee: 'Commission impayée (étape 1)',
-  penalite_etape_2: 'Pénalité (étape 2)',
+  penalite_etape_2: 'Montant dû (étape 2)',
 };
 
 const formatEuros = (amount: number) =>
@@ -347,11 +347,11 @@ export default function InscriptionDetailPage() {
             </div>
 
             <div className="font-bold text-xs tracking-[0.06em] uppercase text-[#4c5058] mb-3">
-              Pénalités réglées
+              Montants réglés
             </div>
             <div className="mb-7">
               {penaltyPayments.length === 0 ? (
-                <div className="text-xs text-gray-400 italic p-4 bg-white border rounded-[10px]">Aucun paiement de pénalité.</div>
+                <div className="text-xs text-gray-400 italic p-4 bg-white border rounded-[10px]">Aucun montant réglé.</div>
               ) : (
                 <div className="border border-[#eceadf] bg-white rounded-[10px] divide-y divide-[#f1efe8]">
                   {penaltyPayments.map((payment) => (

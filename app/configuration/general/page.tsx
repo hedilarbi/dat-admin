@@ -63,9 +63,9 @@ const FIELDS: Array<{
   },
   {
     key: 'accountReactivationFee',
-    label: 'Pénalité de l’étape 2',
+    label: 'Montant de l’étape 2',
     unit: '€',
-    help: "Pénalité appliquée uniquement lorsque l’acheteur ne respecte pas le délai de virement à l’étape 2. À l’étape 1, il règle la commission réellement impayée.",
+    help: "Montant appliqué uniquement lorsque l’acheteur ne respecte pas le délai de virement à l’étape 2. À l’étape 1, il règle la commission réellement impayée.",
     type: 'number',
   },
   {
