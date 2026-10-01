@@ -84,6 +84,8 @@ interface Sale {
     signedPurchaseDeclarationUrl?: string | null;
     auditUrl?: string | null;
     completedAt?: string | null;
+    setupError?: string | null;
+    setupErrorAt?: string | null;
   } | null;
   bonEnlevement?: { url?: string | null; generatedAt?: string | null } | null;
   // Données complémentaires de la carte grise, saisies par le vendeur à l'étape 3.1
@@ -319,6 +321,7 @@ export default function SaleDetailPage() {
         { label: 'Signé par le vendeur le', value: formatDateTime(sale.esignature?.sellerSignedAt) || '—' },
         { label: "Signé par l'acheteur le", value: formatDateTime(sale.esignature?.buyerSignedAt) || '—' },
         { label: 'Signature terminée le', value: formatDateTime(sale.esignature?.completedAt) || '—' },
+        ...(sale.esignature?.setupError ? [{ label: `Échec de création de la session (${formatDateTime(sale.esignature.setupErrorAt) || '—'})`, value: sale.esignature.setupError }] : []),
       ],
       docs: [
         ...(sale.esignature?.signedCertificateUrl ? [{ title: 'Certificat de cession signé', description: 'Copie extraite du dossier signé', url: sale.esignature.signedCertificateUrl, type: 'PDF' as const }] : []),
