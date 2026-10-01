@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { stepDisplayNumber } from './lib/saleSteps';
 import { useRouter } from 'next/navigation';
 import { useUser } from './components/LayoutWrapper';
 import { apiRequest } from './api';
@@ -193,7 +194,7 @@ export default function Home() {
                         </span>
                         {sale.currentStep && (
                           <span className="bg-[#B04A2C] text-white text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full">
-                            Étape {sale.currentStep}
+                            Étape {stepDisplayNumber(sale.currentStep)}
                           </span>
                         )}
                       </div>

@@ -11,6 +11,7 @@ import { Badge } from '../../components/StatusBadge';
 import VerticalStep from '../../components/VerticalStep';
 import { ArrowLeft, Car, CheckCircle2, Circle, Clock, Pause, Play, TimerReset, UserCheck, X, XCircle } from 'lucide-react';
 import type { VehicleDossier } from '../../lib/vehicleDossier';
+import { DISPLAYED_STEP_COUNT, stepDisplayNumber } from '../../lib/saleSteps';
 
 interface Party {
   _id: string;
@@ -22,16 +23,33 @@ interface Party {
   siret?: string;
   status?: string;
   vhuNumber?: string;
+  stampUrl?: string;
   address?: { street?: string; postalCode?: string; city?: string; country?: string };
   bankInfo?: { bankName?: string; accountHolder?: string; iban?: string; bic?: string; ribUrl?: string };
 }
 
-interface CertificateRejection {
-  url?: string;
-  reason: string;
-  comment?: string;
-  rejectedAt?: string;
-  rejectedBy?: string;
+interface SaleDocument {
+  url?: string | null;
+  source?: 'generated' | 'seller' | 'buyer';
+  generatedAt?: string | null;
+  updatedAt?: string | null;
+}
+
+interface ReviewDecision {
+  decision?: 'valide' | 'erreur' | null;
+  reason?: string | null;
+  comment?: string | null;
+  decidedAt?: string | null;
+}
+
+interface ReviewEvent {
+  type: 'valide' | 'erreur' | 'depot';
+  by: 'seller' | 'buyer';
+  document?: 'certificate' | 'purchaseDeclaration' | null;
+  reason?: string | null;
+  comment?: string | null;
+  url?: string | null;
+  version: number;
   createdAt: string;
 }
 
@@ -52,9 +70,24 @@ interface Sale {
   documentsDelivery: 'main_propre' | 'poste' | null;
   commissionPayment?: { provider?: string; mode?: string; status?: string; amount?: number; currency?: string; paymentIntentId?: string; checkoutSessionId?: string; initiatedAt?: string };
   transferConfirmedAt: string | null;
-  certificate?: { url?: string; generatedAt?: string; sellerSignedUrl?: string; sellerSignedAt?: string; signedUrl?: string; signedAt?: string; validatedAt?: string; buyerValidatedAt?: string; rejections?: CertificateRejection[] };
-  handover?: { declarationUrl?: string; generatedAt?: string; otpAttempts?: number; confirmedAt?: string };
-  vehicle: VehicleDossier & { lotNumber?: number | null };
+  registrationCardSubmittedAt?: string | null;
+  certificate?: SaleDocument | null;
+  purchaseDeclaration?: SaleDocument | null;
+  documentsReview?: { version?: number; correctionOpen?: boolean; seller?: ReviewDecision | null; buyer?: ReviewDecision | null; history?: ReviewEvent[] };
+  esignature?: {
+    operationId?: string | null;
+    initiatedAt?: string | null;
+    sellerSignedAt?: string | null;
+    buyerSignedAt?: string | null;
+    signedDocumentUrl?: string | null;
+    signedCertificateUrl?: string | null;
+    signedPurchaseDeclarationUrl?: string | null;
+    auditUrl?: string | null;
+    completedAt?: string | null;
+  } | null;
+  bonEnlevement?: { url?: string | null; generatedAt?: string | null } | null;
+  // Données complémentaires de la carte grise, saisies par le vendeur à l'étape 3.1
+  vehicle: VehicleDossier & { lotNumber?: number | null; formulaNumber?: string | null; registrationCardMissingMotif?: string | null };
   winner: Party | null;
   seller: Party | null;
   session: { _id: string; name: string; endDate?: string; status?: string } | null;
@@ -80,21 +113,37 @@ const SALE_STATUS_BADGES: Record<string, { label: string; color: string; bg: str
 
 const STEP_LABELS: Record<string, string> = {
   commission: 'Paiement de la commission',
-  virement: 'Virement du prix au vendeur',
-  certificat_vendeur: 'Certificat signé par le vendeur',
-  validation_acheteur: "Validation par l'acheteur",
-  certificat_acheteur: "Certificat signé par l'acheteur",
-  validation_vendeur: 'Validation par le vendeur',
-  enlevement: 'Enlèvement et clôture',
+  virement_carte_grise: 'Virement du prix au vendeur',
+  preparation_documents: 'Documents · Carte grise et tampons',
+  verification_documents: 'Documents · Vérification des tampons',
+  signature_electronique: 'Documents · Signature électronique',
 };
 
-const REJECTION_LABELS: Record<string, string> = {
+// Miroir de DOCUMENT_REPORT_REASONS (server/models/sale.model.js)
+const REPORT_LABELS: Record<string, string> = {
   tampon_manquant: 'Tampon manquant',
+  mauvais_tampon: 'Mauvais tampon',
+  informations_erronees: 'Informations erronées',
   document_illisible: 'Document illisible',
-  signature_manquante: 'Signature manquante',
   document_incomplet: 'Document incomplet',
-  mauvais_document: 'Mauvais document',
   autre: 'Autre',
+};
+
+const PARTY_LABELS: Record<string, string> = { seller: 'Vendeur', buyer: 'Acheteur' };
+const DOCUMENT_LABELS: Record<string, string> = { certificate: 'Certificat de cession', purchaseDeclaration: "Déclaration d'achat" };
+const SOURCE_LABELS: Record<string, string> = {
+  generated: 'Rempli et tamponné par la plateforme',
+  seller: 'Redéposé par le vendeur',
+  buyer: "Redéposé par l'acheteur",
+};
+
+/** Avis d'une partie sur la version courante des documents. */
+const decisionText = (decision?: ReviewDecision | null) => {
+  if (decision?.decision === 'valide') return `Validé le ${formatDateTime(decision.decidedAt) || '—'}`;
+  if (decision?.decision === 'erreur') {
+    return `Erreur signalée : ${REPORT_LABELS[decision.reason || ''] || decision.reason || '—'}${decision.comment ? ` — ${decision.comment}` : ''}`;
+  }
+  return 'En attente';
 };
 
 const DELIVERY_LABELS: Record<string, string> = {
@@ -192,13 +241,15 @@ export default function SaleDetailPage() {
   const vehicleTitle = [sale.vehicle?.brand, sale.vehicle?.model].filter(Boolean).join(' ') || 'Véhicule';
   const winningOfferId = typeof sale.winningOffer === 'string' ? sale.winningOffer : sale.winningOffer?._id;
 
-  const lastBuyerRejection = (sale.certificate?.rejections || [])
-    .filter(r => r.rejectedBy === 'buyer')
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-
-  const lastSellerRejection = (sale.certificate?.rejections || [])
-    .filter(r => r.rejectedBy === 'seller')
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+  const review = sale.documentsReview;
+  const reviewHistory = review?.history || [];
+  const lastReport = [...reviewHistory].reverse().find((event) => event.type === 'erreur');
+  const currentDocument = (key: 'certificate' | 'purchaseDeclaration') => {
+    const document = sale[key];
+    return document?.url
+      ? [{ title: DOCUMENT_LABELS[key], description: SOURCE_LABELS[document.source || 'generated'], url: document.url, type: 'PDF' as const }]
+      : [];
+  };
 
   // Ce qui s'est passé à chaque étape, dans l'ordre du modèle serveur.
   const stepDetails: Record<string, {
@@ -219,7 +270,7 @@ export default function SaleDetailPage() {
       ],
       docs: [],
     },
-    virement: {
+    virement_carte_grise: {
       done: Boolean(sale.transferConfirmedAt),
       facts: [
         { label: 'Réception confirmée par le vendeur le', value: formatDateTime(sale.transferConfirmedAt) || '—' },
@@ -227,86 +278,55 @@ export default function SaleDetailPage() {
       ],
       docs: [],
     },
-    certificat_vendeur: {
-      done: Boolean(sale.certificate?.sellerSignedAt),
+    preparation_documents: {
+      done: Boolean(sale.registrationCardSubmittedAt),
       facts: [
-        { label: 'Certificat généré le', value: formatDateTime(sale.certificate?.generatedAt) || '—' },
-        { label: 'Déposé signé le', value: formatDateTime(sale.certificate?.sellerSignedAt) || '—' },
+        { label: 'Carte grise complétée le', value: formatDateTime(sale.registrationCardSubmittedAt) || '—' },
+        { label: 'Numéro de formule', value: sale.vehicle?.formulaNumber || '—' },
+        { label: 'Motif d’absence de carte grise', value: sale.vehicle?.registrationCardMissingMotif || '—' },
+        { label: 'Tampon du vendeur', value: sale.seller?.stampUrl ? 'Déposé' : 'Manquant' },
+        { label: "Tampon de l'acheteur", value: sale.winner?.stampUrl ? 'Déposé' : 'Manquant' },
+      ],
+      docs: [],
+    },
+    verification_documents: {
+      done: sale.currentStep > 4 || sale.status === 'cloturee',
+      facts: [
+        { label: 'Version des documents', value: review?.version ? String(review.version) : 'Pas encore générés' },
+        { label: 'Avis du vendeur', value: decisionText(review?.seller) },
+        { label: "Avis de l'acheteur", value: decisionText(review?.buyer) },
+        { label: 'Correction ouverte', value: review?.correctionOpen ? 'Oui' : 'Non' },
+        ...reviewHistory.map((event) => ({
+          label: `${formatDateTime(event.createdAt) || '—'} · v${event.version} · ${PARTY_LABELS[event.by] || event.by}`,
+          value: event.type === 'depot'
+            ? `Dépôt : ${DOCUMENT_LABELS[event.document || ''] || event.document || '—'}`
+            : event.type === 'valide'
+              ? 'Validation'
+              : `Erreur : ${REPORT_LABELS[event.reason || ''] || event.reason || '—'}${event.comment ? ` — ${event.comment}` : ''}`,
+        })),
+      ],
+      docs: [...currentDocument('certificate'), ...currentDocument('purchaseDeclaration')],
+      rejection: lastReport && review?.correctionOpen ? {
+        title: `Erreur signalée par ${PARTY_LABELS[lastReport.by] === 'Vendeur' ? 'le vendeur' : "l'acheteur"}`,
+        reason: REPORT_LABELS[lastReport.reason || ''] || lastReport.reason || '—',
+        comment: lastReport.comment || undefined,
+      } : null,
+    },
+    signature_electronique: {
+      done: Boolean(sale.esignature?.completedAt),
+      facts: [
+        { label: 'Session de signature créée le', value: formatDateTime(sale.esignature?.initiatedAt) || '—' },
+        { label: 'Signé par le vendeur le', value: formatDateTime(sale.esignature?.sellerSignedAt) || '—' },
+        { label: "Signé par l'acheteur le", value: formatDateTime(sale.esignature?.buyerSignedAt) || '—' },
+        { label: 'Signature terminée le', value: formatDateTime(sale.esignature?.completedAt) || '—' },
       ],
       docs: [
-        ...(sale.certificate?.url ? [{ title: 'Certificat de cession généré', description: 'Document pré-rempli par la plateforme', url: sale.certificate.url, type: 'PDF' as const }] : []),
-        ...(sale.certificate?.sellerSignedUrl ? [{ title: 'Certificat signé par le vendeur', description: "Déposé par le vendeur", url: sale.certificate.sellerSignedUrl, type: 'PDF' as const }] : []),
+        ...(sale.esignature?.signedCertificateUrl ? [{ title: 'Certificat de cession signé', description: 'Copie extraite du dossier signé', url: sale.esignature.signedCertificateUrl, type: 'PDF' as const }] : []),
+        ...(sale.esignature?.signedPurchaseDeclarationUrl ? [{ title: "Déclaration d'achat signée", description: 'Copie extraite du dossier signé', url: sale.esignature.signedPurchaseDeclarationUrl, type: 'PDF' as const }] : []),
+        ...(sale.esignature?.signedDocumentUrl ? [{ title: 'Dossier complet signé', description: 'Porte la signature électronique', url: sale.esignature.signedDocumentUrl, type: 'PDF' as const }] : []),
+        ...(sale.esignature?.auditUrl ? [{ title: "Piste d'audit", description: 'Fournie par OpenAPI', url: sale.esignature.auditUrl, type: 'PDF' as const }] : []),
+        ...(sale.bonEnlevement?.url ? [{ title: "Bon d'enlèvement", description: 'Généré à la clôture', url: sale.bonEnlevement.url, type: 'PDF' as const }] : []),
       ],
-      rejection: lastBuyerRejection ? {
-        title: "Certificat signalé par l'acheteur",
-        reason: REJECTION_LABELS[lastBuyerRejection.reason] || lastBuyerRejection.reason,
-        comment: lastBuyerRejection.comment,
-      } : null
-    },
-    validation_acheteur: {
-      done: Boolean(sale.certificate?.buyerValidatedAt),
-      facts: [
-        { label: "Validé par l'acheteur le", value: formatDateTime(sale.certificate?.buyerValidatedAt) || '—' },
-        { label: 'Refus enregistrés', value: String(sale.certificate?.rejections?.filter(r => r.rejectedBy === 'buyer').length || 0) },
-      ],
-      docs: (sale.certificate?.rejections || [])
-        .filter((r) => r.rejectedBy === 'buyer' && r.url)
-        .map((r, i) => ({
-          title: `Document refusé n°${i + 1} — ${REJECTION_LABELS[r.reason] || r.reason}`,
-          description: [formatDateTime(r.createdAt), r.comment].filter(Boolean).join(' · ') || "Refusé par l'acheteur",
-          url: r.url as string,
-          type: 'PDF' as const,
-        })),
-      rejection: lastBuyerRejection ? {
-        title: "Certificat signalé par l'acheteur",
-        reason: REJECTION_LABELS[lastBuyerRejection.reason] || lastBuyerRejection.reason,
-        comment: lastBuyerRejection.comment,
-      } : null
-    },
-    certificat_acheteur: {
-      done: Boolean(sale.certificate?.signedAt),
-      facts: [
-        { label: 'Déposé signé le', value: formatDateTime(sale.certificate?.signedAt) || '—' },
-      ],
-      docs: [
-        ...(sale.certificate?.signedUrl ? [{ title: 'Certificat signé et tamponné', description: "Déposé par l'acheteur", url: sale.certificate.signedUrl, type: 'PDF' as const }] : []),
-      ],
-      rejection: lastSellerRejection ? {
-        title: "Certificat de l'acheteur refusé par le vendeur",
-        reason: REJECTION_LABELS[lastSellerRejection.reason] || lastSellerRejection.reason,
-        comment: lastSellerRejection.comment,
-      } : null
-    },
-    validation_vendeur: {
-      done: Boolean(sale.certificate?.validatedAt),
-      facts: [
-        { label: 'Validé par le vendeur le', value: formatDateTime(sale.certificate?.validatedAt) || '—' },
-        { label: 'Refus enregistrés', value: String(sale.certificate?.rejections?.filter(r => r.rejectedBy === 'seller').length || 0) },
-      ],
-      docs: (sale.certificate?.rejections || [])
-        .filter((r) => r.rejectedBy === 'seller' && r.url)
-        .map((r, i) => ({
-          title: `Document refusé n°${i + 1} — ${REJECTION_LABELS[r.reason] || r.reason}`,
-          description: [formatDateTime(r.createdAt), r.comment].filter(Boolean).join(' · ') || 'Refusé par le vendeur',
-          url: r.url as string,
-          type: 'PDF' as const,
-        })),
-      rejection: lastSellerRejection ? {
-        title: "Certificat de l'acheteur refusé par le vendeur",
-        reason: REJECTION_LABELS[lastSellerRejection.reason] || lastSellerRejection.reason,
-        comment: lastSellerRejection.comment,
-      } : null
-    },
-    enlevement: {
-      done: Boolean(sale.handover?.confirmedAt),
-      facts: [
-        { label: 'Déclaration générée le', value: formatDateTime(sale.handover?.generatedAt) || '—' },
-        { label: 'Enlèvement confirmé le', value: formatDateTime(sale.handover?.confirmedAt) || '—' },
-        { label: 'Tentatives de code', value: String(sale.handover?.otpAttempts || 0) },
-      ],
-      docs: sale.handover?.declarationUrl
-        ? [{ title: "Déclaration d'achat", description: 'Générée par la plateforme', url: sale.handover.declarationUrl, type: 'PDF' as const }]
-        : [],
     },
   };
 
@@ -418,7 +438,7 @@ export default function SaleDetailPage() {
         <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-[12px] font-bold uppercase tracking-[0.06em] text-[#4c5058]">Avancement de la vente</h2>
           <span className="text-[12px] font-semibold text-[#13243c]">
-            Étape {sale.currentStep} sur {sale.stepCount}
+            Étape {stepDisplayNumber(sale.currentStep)} sur {DISPLAYED_STEP_COUNT}
           </span>
         </div>
         
@@ -439,6 +459,7 @@ export default function SaleDetailPage() {
               <VerticalStep
                 key={key}
                 stepNumber={number}
+                stepLabel={stepDisplayNumber(number)}
                 title={STEP_LABELS[key] || key}
                 isActive={isActive}
                 isCompleted={isCompleted}
@@ -594,7 +615,7 @@ export default function SaleDetailPage() {
       <ConfirmModal
         open={extendModalOpen}
         title="Prolonger le délai"
-        message={`Étape ${sale.currentStep} — ${STEP_LABELS[sale.steps[sale.currentStep - 1]] || ''}. De combien d'heures repousser l'échéance ?`}
+        message={`Étape ${stepDisplayNumber(sale.currentStep)} — ${STEP_LABELS[sale.steps[sale.currentStep - 1]] || ''}. De combien d'heures repousser l'échéance ?`}
         confirmLabel={busy ? 'Prolongation…' : 'Prolonger'}
         onCancel={() => { if (!busy) setExtendModalOpen(false); }}
         onConfirm={() => runAction(
