@@ -73,6 +73,9 @@ export const isSellerSuspended = (seller?: Pick<DossierSeller, 'status'> | null)
 export interface VehicleDossier {
   _id: string;
   seller: DossierSeller;
+  /** Détail d'une session : trois meilleures offres actives et nombre total d'offres actives. */
+  offerCount?: number;
+  topOffers?: Array<{ _id: string; amount: number; buyerName: string; at: string; modified: boolean }>;
   brand?: string;
   model?: string;
   year?: number;

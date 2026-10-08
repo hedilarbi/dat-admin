@@ -6,6 +6,7 @@ import { apiRequest } from '../api';
 import Alert from '../components/Alert';
 import SkeletonRows from '../components/SkeletonRows';
 import StatCard from '../components/StatCard';
+import VehiclesHeader from '../components/VehiclesHeader';
 import type { VehicleDossier } from '../lib/vehicleDossier';
 import { Badge, getVehicleDossierStatusBadge } from '../components/StatusBadge';
 import { Columns3, Download, X } from 'lucide-react';
@@ -50,15 +51,17 @@ const COLUMN_STORAGE_KEY = 'dealsautopro.admin.dossiers.columns.v2';
 interface DossierCounts {
   enAttente: number;
   correction: number;
-  valide: number;
   refuse: number;
 }
+
+// Les dossiers validés sont des véhicules : ils sont dans l'onglet « Véhicules ».
+const NOT_VALIDATED = 'valide';
 
 export default function AdminDossiersPage() {
   const router = useRouter();
 
   const [dossiers, setDossiers] = useState<VehicleDossier[]>([]);
-  const [counts, setCounts] = useState<DossierCounts>({ enAttente: 0, correction: 0, valide: 0, refuse: 0 });
+  const [counts, setCounts] = useState<DossierCounts>({ enAttente: 0, correction: 0, refuse: 0 });
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -176,7 +179,7 @@ export default function AdminDossiersPage() {
     setError('');
     try {
       const buildParams = (exportPage: number) => {
-        const params = new URLSearchParams({ page: String(exportPage), limit: '100' });
+        const params = new URLSearchParams({ page: String(exportPage), limit: '100', excludeStatus: NOT_VALIDATED });
         if (Object.keys(appliedFilters).length > 0) params.set('columnFilters', JSON.stringify(appliedFilters));
         return params;
       };
@@ -224,7 +227,7 @@ export default function AdminDossiersPage() {
   const renderFilterInput = (column: TableColumn) => {
     const value = draftFilters[column.key] || '';
     const className = "mt-2 h-9 w-full rounded-[7px] border border-[#dcd7cb] bg-white px-2 text-[12px] font-normal normal-case tracking-normal text-[#13243c] focus:border-[#13243c] focus:outline-none";
-    if (column.key === 'status') return <select aria-label={`Filtrer par ${column.label}`} value={value} onChange={(event) => updateDraftFilter(column.key, event.target.value)} className={className}><option value="">Tous</option><option value="brouillon">Brouillon</option><option value="soumis">Soumis</option><option value="en_attente_validation">En attente de validation</option><option value="correction_demandee">Correction demandée</option><option value="valide">Validé</option><option value="refuse">Rejeté</option><option value="annule_vendeur">Annulé vendeur</option></select>;
+    if (column.key === 'status') return <select aria-label={`Filtrer par ${column.label}`} value={value} onChange={(event) => updateDraftFilter(column.key, event.target.value)} className={className}><option value="">Tous</option><option value="brouillon">Brouillon</option><option value="soumis">Soumis</option><option value="en_attente_validation">En attente de validation</option><option value="correction_demandee">Correction demandée</option><option value="refuse">Rejeté</option><option value="annule_vendeur">Annulé vendeur</option></select>;
     if (column.key === 'registrationCardAvailable') return <select aria-label={`Filtrer par ${column.label}`} value={value} onChange={(event) => updateDraftFilter(column.key, event.target.value)} className={className}><option value="">Toutes</option><option value="true">Oui</option><option value="false">Non</option></select>;
     if (column.key === 'procedure') return <select aria-label={`Filtrer par ${column.label}`} value={value} onChange={(event) => updateDraftFilter(column.key, event.target.value)} className={className}><option value="">Toutes</option>{['VEI', 'VE', 'TNR', 'RIV / VE', 'RIV'].map((procedure) => <option key={procedure} value={procedure}>{procedure}</option>)}</select>;
     const type = column.key === 'submittedAt' ? 'date' : ['year', 'mileage'].includes(column.key) ? 'number' : 'text';
@@ -235,7 +238,7 @@ export default function AdminDossiersPage() {
     const fetchDossiers = async () => {
       setFetching(true);
       try {
-        const params = new URLSearchParams();
+        const params = new URLSearchParams({ excludeStatus: NOT_VALIDATED });
         if (Object.keys(appliedFilters).length > 0) params.set('columnFilters', JSON.stringify(appliedFilters));
         params.set('page', String(page));
         params.set('limit', '20');
@@ -244,7 +247,7 @@ export default function AdminDossiersPage() {
         setDossiers(res.dossiers || []);
         setTotal(res.total || 0);
         setTotalPages(res.totalPages || 1);
-        if (res.counts) setCounts(res.counts);
+        if (res.counts) setCounts({ enAttente: res.counts.enAttente, correction: res.counts.correction, refuse: res.counts.refuse });
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Erreur de chargement des dossiers.');
       } finally {
@@ -266,31 +269,23 @@ export default function AdminDossiersPage() {
 
   return (
     <div className="flex-1 min-w-0 max-w-full overflow-x-hidden px-6 pt-6 pb-16 sm:px-8 sm:pt-8 sm:pb-20 lg:px-10 lg:pt-10 lg:pb-24 font-sans text-black bg-white min-h-full">
-      {/* Header Section */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
-        <div>
-          <div className="font-semibold text-[11px] leading-none tracking-[0.2em] uppercase text-[#a3987f] mb-2.5 font-sans">
-            Validation des annonces
-          </div>
-          <h1 className="m-0 font-bold text-[36px] leading-none uppercase text-[#13243c] font-['Saira_Condensed',sans-serif]">
-            Dossiers véhicules
-          </h1>
-        </div>
+      <VehiclesHeader
+        active="dossiers"
+        actions={(
+          <>
+            <button type="button" onClick={() => setColumnsModalOpen(true)} className="flex h-[42px] items-center justify-center gap-2 rounded-[9px] border border-[#dcd7cb] bg-white px-4 text-[12px] font-bold uppercase text-[#13243c] transition hover:bg-[#f8f7f2]">
+              <Columns3 size={16} /> Colonnes
+            </button>
+            <button type="button" onClick={exportCsv} disabled={exportingCsv || selectedColumns.length === 0} className="btn btn-primary gap-2 disabled:cursor-not-allowed disabled:opacity-50">
+              <Download size={16} /> {exportingCsv ? 'Export…' : 'Export CSV'}
+            </button>
+          </>
+        )}
+      />
 
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-          <button type="button" onClick={() => setColumnsModalOpen(true)} className="flex h-[42px] items-center justify-center gap-2 rounded-[9px] border border-[#dcd7cb] bg-white px-4 text-[12px] font-bold uppercase text-[#13243c] transition hover:bg-[#f8f7f2]">
-            <Columns3 size={16} /> Colonnes
-          </button>
-          <button type="button" onClick={exportCsv} disabled={exportingCsv || selectedColumns.length === 0} className="btn btn-primary gap-2 disabled:cursor-not-allowed disabled:opacity-50">
-            <Download size={16} /> {exportingCsv ? 'Export…' : 'Export CSV'}
-          </button>
-        </div>
-      </div>
-
-      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatCard label="En attente" value={counts.enAttente} bg="#2563eb" labelColor="#bfdbfe" valueColor="#ffffff" />
         <StatCard label="Correction demandée" value={counts.correction} bg="#16a34a" labelColor="#bbf7d0" valueColor="#ffffff" />
-        <StatCard label="Validés" value={counts.valide} bg="#ea580c" labelColor="#fed7aa" valueColor="#ffffff" />
         <StatCard label="Rejetés" value={counts.refuse} bg="#9333ea" labelColor="#e9d5ff" valueColor="#ffffff" />
       </div>
 

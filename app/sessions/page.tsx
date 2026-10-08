@@ -6,6 +6,7 @@ import Alert from '../components/Alert';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Spinner from '../components/Spinner';
 import ConfirmModal from '../components/ConfirmModal';
+import VehicleOffersModal from '../components/VehicleOffersModal';
 import CommissionTiersEditor from '../components/CommissionTiersEditor';
 import { isSellerSuspended, type VehicleDossier } from '../lib/vehicleDossier';
 import {
@@ -16,7 +17,7 @@ import {
   tierToDraft,
   validateDrafts,
 } from '../lib/commission';
-import { AlertTriangle, CalendarDays, CarFront, ChevronLeft, ChevronRight, Clock3, Gavel, Search, Trash2 } from 'lucide-react';
+import { AlertTriangle, CalendarDays, CarFront, ChevronLeft, ChevronRight, Clock3, Gavel, History, Search, Trash2 } from 'lucide-react';
 
 interface SessionData {
   _id: string;
@@ -141,6 +142,7 @@ export default function AdminSessionsPage() {
   const [availableBrand, setAvailableBrand] = useState('all');
   const [availableProcedure, setAvailableProcedure] = useState('all');
   const [detailVehicle, setDetailVehicle] = useState<VehicleDossier | null>(null);
+  const [offersVehicleId, setOffersVehicleId] = useState<string | null>(null);
   const [initialVehicleIds, setInitialVehicleIds] = useState<string[]>([]);
   const [initialSessionName, setInitialSessionName] = useState('');
   const [sessionDirty, setSessionDirty] = useState(false);
@@ -312,6 +314,7 @@ export default function AdminSessionsPage() {
   };
 
   const closeSessionDetail = () => {
+    setOffersVehicleId(null);
     setPanelSessionId(null);
     setSelectedSession(null);
     setInitialVehicleIds([]);
@@ -941,6 +944,22 @@ export default function AdminSessionsPage() {
                             {v.lotNumber ? ' · ' : ''}{v.registrationNumber || v.vin || '—'} · {v.seller?.companyName || 'Vendeur'}
                           </div>
                             <ListingAttemptsBadge count={v.listingCount || 0} />
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                              {(v.topOffers || []).length === 0 ? (
+                                <span className="text-[11px] text-[#a3987f]">Aucune offre</span>
+                              ) : (v.topOffers || []).map((offer, rank) => (
+                                <span key={offer._id} title={`${offer.buyerName} · ${new Date(offer.at).toLocaleString('fr-FR')}${offer.modified ? ' · offre modifiée' : ''}`} className="inline-flex items-center gap-1 rounded-full bg-[#eef1f5] px-2 py-0.5 text-[11px] font-semibold text-[#13243c]">
+                                  <span className="font-mono text-[#b3893f]">#{rank + 1}</span>
+                                  <span className="font-mono">{offer.amount.toLocaleString('fr-FR')} €</span>
+                                  {offer.modified && <History size={11} className="text-[#d9704f]" aria-label="Offre modifiée" />}
+                                </span>
+                              ))}
+                              {(v.offerCount || 0) > 0 && (
+                                <button type="button" onClick={() => setOffersVehicleId(v._id)} className="text-[11px] font-semibold text-[#d9704f] hover:underline">
+                                  Toutes les offres ({v.offerCount})
+                                </button>
+                              )}
+                            </div>
                           </div>
                         <div className="font-semibold text-[12px] leading-none font-mono text-[#13243c] shrink-0">
                           {v.reservePrice ? `${v.reservePrice.toLocaleString('fr-FR')} €` : '—'}
@@ -987,6 +1006,10 @@ export default function AdminSessionsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {offersVehicleId && selectedSession && (
+        <VehicleOffersModal vehicleId={offersVehicleId} sessionId={selectedSession._id} onClose={() => setOffersVehicleId(null)} />
       )}
 
       {detailVehicle && (

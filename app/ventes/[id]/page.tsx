@@ -108,6 +108,7 @@ interface Sale {
 
 const SALE_STATUS_BADGES: Record<string, { label: string; color: string; bg: string }> = {
   en_cours: { label: 'En cours', color: '#ffffff', bg: '#f97316' },
+  suspendue: { label: 'Décision vendeur requise', color: '#ffffff', bg: '#b45309' },
   cloturee: { label: 'Clôturée', color: '#ffffff', bg: '#16a34a' },
   sans_gagnant: { label: 'Sans gagnant', color: '#ffffff', bg: '#6b7280' },
   annulee: { label: 'Annulée', color: '#ffffff', bg: '#b91c1c' },

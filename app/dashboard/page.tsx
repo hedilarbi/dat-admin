@@ -156,7 +156,7 @@ export default function AdminDashboardPage() {
         {!loading && total > vehicles.length && (
           <div className="border-t border-[#efece3] px-5 py-3 text-center text-[12px] text-[#5a5e66]">
             {vehicles.length} véhicule(s) affiché(s) sur {total} —{' '}
-            <Link href="/ventes" className="font-semibold text-[#d9704f] hover:underline">voir toutes les ventes</Link>
+            <Link href="/vehicules" className="font-semibold text-[#d9704f] hover:underline">voir tous les véhicules</Link>
           </div>
         )}
       </section>

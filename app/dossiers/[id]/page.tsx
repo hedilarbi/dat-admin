@@ -423,9 +423,15 @@ export default function AdminDossierVehiculeDetailPage() {
       <div className="flex-1 min-w-0 pb-24 sm:pb-28 lg:pb-32">
         {/* Breadcrumb */}
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          <Link href="/dossiers" className="btn btn-secondary gap-2">
-            <ArrowLeft size={16} /> Retour aux dossiers
-          </Link>
+          {dossier.status === 'valide' ? (
+            <Link href="/vehicules" className="btn btn-secondary gap-2">
+              <ArrowLeft size={16} /> Retour aux véhicules
+            </Link>
+          ) : (
+            <Link href="/dossiers" className="btn btn-secondary gap-2">
+              <ArrowLeft size={16} /> Retour aux dossiers
+            </Link>
+          )}
           <span className="font-semibold text-[12px] text-[#4c5058]">{vehicleLabel} · {plate}</span>
         </div>
 
