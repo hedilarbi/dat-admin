@@ -759,7 +759,7 @@ function VehicleModal({ vehicle, onClose }: { vehicle: Sale['vehicle']; onClose:
     { label: 'Genre', value: vehicle?.vehicleGenre },
     { label: 'Puissance fiscale', value: vehicle?.fiscalPower },
     { label: 'Carrosserie', value: vehicle?.bodyType },
-    { label: 'Boîte', value: vehicle?.gearbox === 'M' ? 'Manuelle' : vehicle?.gearbox === 'A' ? 'Automatique' : vehicle?.gearbox },
+    { label: 'Boîte', value: vehicle?.gearbox === 'M' ? 'Manuelle' : vehicle?.gearbox === 'A' ? 'Automatique' : vehicle?.gearbox === 'S' ? 'Semi-automatique' : vehicle?.gearbox },
     { label: 'Couleur', value: vehicle?.color },
     { label: 'Procédure', value: vehicle?.procedure },
     { label: 'VRADE', value: vehicle?.vrade },

@@ -241,7 +241,7 @@ export default function AdminVehiculesPage() {
       case 'fiscalPower': return row.fiscalPower || '—';
       case 'bodyType': return row.bodyType || '—';
       case 'vin': return row.vin || '—';
-      case 'gearbox': return row.gearbox === 'M' ? 'Manuelle' : row.gearbox === 'A' ? 'Automatique' : row.gearbox || '—';
+      case 'gearbox': return row.gearbox === 'M' ? 'Manuelle' : row.gearbox === 'A' ? 'Automatique' : row.gearbox === 'S' ? 'Semi-automatique' : row.gearbox || '—';
       case 'color': return row.color || '—';
       case 'mileage': return row.mileage != null ? `${row.mileage.toLocaleString('fr-FR')} km` : '—';
       case 'vrade': return row.vrade || '—';
@@ -281,7 +281,7 @@ export default function AdminVehiculesPage() {
       case 'submittedAt': return row.submittedAt ? new Date(row.submittedAt).toLocaleDateString('fr-FR') : '';
       case 'mileage': return row.mileage?.toString() || '';
       case 'year': return row.year?.toString() || '';
-      case 'gearbox': return row.gearbox === 'M' ? 'Manuelle' : row.gearbox === 'A' ? 'Automatique' : row.gearbox || '';
+      case 'gearbox': return row.gearbox === 'M' ? 'Manuelle' : row.gearbox === 'A' ? 'Automatique' : row.gearbox === 'S' ? 'Semi-automatique' : row.gearbox || '';
       case 'registrationCardAvailable': return row.registrationCardAvailable === undefined ? '' : row.registrationCardAvailable ? 'Oui' : 'Non';
       case 'co2': return row.co2 || '';
       case 'energyLabel': return row.energyLabel || row.fuelType || '';

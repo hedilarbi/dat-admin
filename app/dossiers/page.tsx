@@ -136,7 +136,7 @@ export default function AdminDossiersPage() {
       case 'fiscalPower': return row.fiscalPower || '—';
       case 'bodyType': return row.bodyType || '—';
       case 'vin': return row.vin || '—';
-      case 'gearbox': return row.gearbox === 'M' ? 'Manuelle' : row.gearbox === 'A' ? 'Automatique' : row.gearbox || '—';
+      case 'gearbox': return row.gearbox === 'M' ? 'Manuelle' : row.gearbox === 'A' ? 'Automatique' : row.gearbox === 'S' ? 'Semi-automatique' : row.gearbox || '—';
       case 'color': return row.color || '—';
       case 'mileage': return row.mileage != null ? `${row.mileage.toLocaleString('fr-FR')} km` : '—';
       case 'vrade': return row.vrade || '—';
@@ -165,7 +165,7 @@ export default function AdminDossiersPage() {
       case 'fiscalPower': return row.fiscalPower || '';
       case 'bodyType': return row.bodyType || '';
       case 'vin': return row.vin || '';
-      case 'gearbox': return row.gearbox === 'M' ? 'Manuelle' : row.gearbox === 'A' ? 'Automatique' : row.gearbox || '';
+      case 'gearbox': return row.gearbox === 'M' ? 'Manuelle' : row.gearbox === 'A' ? 'Automatique' : row.gearbox === 'S' ? 'Semi-automatique' : row.gearbox || '';
       case 'color': return row.color || '';
       case 'mileage': return row.mileage?.toString() || '';
       case 'vrade': return row.vrade || '';
