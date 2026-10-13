@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { History, X } from 'lucide-react';
 import { apiRequest } from '../api';
 import type { DossierSeller } from '../lib/vehicleDossier';
@@ -124,7 +125,14 @@ export default function VehicleOffersModal({ vehicleId, sessionId, onClose }: Ve
                     const accountSuspended = ['suspendu', 'bloque'].includes(offer.buyer?.status || '');
                     return <tr key={offer._id} className="border-t border-[#efece3] text-[13px]">
                       <td className="px-5 py-4 font-mono font-bold text-[#13243c]">#{offer.rank || index + 1}</td>
-                      <td className="px-5 py-4"><div className="font-bold text-[#13243c]">{personName(offer.buyer)}</div><div className="text-[11px] text-[#5a5e66]">{offer.buyer?.email || '—'}</div></td>
+                      <td className="px-5 py-4"><div className="font-bold text-[#13243c]">
+                        {offer.buyer?._id ? (
+                          // Fiche d'inscription de l'acheteur, ouverte dans un nouvel onglet pour ne pas fermer la session en cours
+                          <Link href={`/inscription/${offer.buyer.role === 'vendeur' ? 'vendeur' : 'acheteur'}/${offer.buyer._id}`} target="_blank" rel="noopener noreferrer" className="text-[#13243c] underline decoration-[#d9704f] decoration-2 underline-offset-2 hover:text-[#d9704f]">
+                            {personName(offer.buyer)}
+                          </Link>
+                        ) : personName(offer.buyer)}
+                      </div><div className="text-[11px] text-[#5a5e66]">{offer.buyer?.email || '—'}</div></td>
                       <td className="px-5 py-4 text-base font-bold text-[#13243c]">{formatEuros(offer.amount)}</td>
                       <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${accountSuspended ? 'bg-[#fdece4] text-[#b91c1c]' : 'bg-[#e9f4ee] text-[#2f6f4f]'}`}>{accountSuspended ? offer.buyer?.status : 'Actif'}</span></td>
                       <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${outcome.className}`}>{outcome.label}</span></td>

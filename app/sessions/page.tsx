@@ -7,6 +7,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import Spinner from '../components/Spinner';
 import ConfirmModal from '../components/ConfirmModal';
 import VehicleOffersModal from '../components/VehicleOffersModal';
+import ClosureResults, { type ClosureResult } from './ClosureResults';
 import CommissionTiersEditor from '../components/CommissionTiersEditor';
 import { isSellerSuspended, type VehicleDossier } from '../lib/vehicleDossier';
 import {
@@ -29,6 +30,8 @@ interface SessionData {
   status: 'open' | 'upcoming' | 'closed' | 'annulee' | 'programmee' | 'active' | 'cloturee';
   vehicleCount: number;
   vehicles?: VehicleDossier[];
+  /** Session clôturée : résultat de chaque véhicule, y compris les invendus revenus en attente */
+  closureResults?: ClosureResult[];
   commission?: SessionCommission;
   date?: string;
 }
@@ -311,6 +314,19 @@ export default function AdminSessionsPage() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  // Invendu revenu en attente : l'admin le remet directement en session depuis le résultat de clôture
+  const handleRelistFromClosure = async (vehicleId: string, targetSessionId: string) => {
+    if (!selectedSession) return;
+    await apiRequest(`/sessions/${targetSessionId}/add-vehicle`, {
+      method: 'POST',
+      body: JSON.stringify({ vehicleId }),
+    });
+    const detail = await apiRequest(`/sessions/${selectedSession._id}`);
+    setSelectedSession(detail);
+    await Promise.all([fetchSessions(), fetchAvailableVehicles()]);
+    setMessage('Véhicule remis en session.');
   };
 
   const closeSessionDetail = () => {
@@ -920,6 +936,15 @@ export default function AdminSessionsPage() {
 
               {/* Right Column: Assigned Vehicles */}
               <div className="flex-1 min-w-0 flex flex-col">
+                {selectedSession.closureResults && selectedSession.closureResults.length > 0 && (
+                  <ClosureResults
+                    results={selectedSession.closureResults}
+                    targets={sessions
+                      .filter((session) => ['upcoming', 'programmee', 'open', 'active'].includes(session.status) && session._id !== selectedSession._id)
+                      .map((session) => ({ _id: session._id, name: session.name }))}
+                    onRelist={handleRelistFromClosure}
+                  />
+                )}
                 <div className="p-4 sm:p-[18px_26px_12px]">
                   <div className="font-bold text-[11px] leading-none tracking-[0.06em] uppercase text-[#4c5058]">
                     Véhicules affectés à cette session ({selectedSession.vehicles?.length || 0})
