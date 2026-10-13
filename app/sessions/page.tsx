@@ -945,6 +945,10 @@ export default function AdminSessionsPage() {
                     onRelist={handleRelistFromClosure}
                   />
                 )}
+                {/* Une session clôturée a son résultat complet ci-dessus : une seconde liste (les véhicules
+                    encore rattachés) ferait doublon et prêterait à confusion. */}
+                {!(selectedSession.closureResults && selectedSession.closureResults.length > 0) && (
+                <>
                 <div className="p-4 sm:p-[18px_26px_12px]">
                   <div className="font-bold text-[11px] leading-none tracking-[0.06em] uppercase text-[#4c5058]">
                     Véhicules affectés à cette session ({selectedSession.vehicles?.length || 0})
@@ -1002,6 +1006,8 @@ export default function AdminSessionsPage() {
                     ))
                   )}
                 </div>
+                </>
+                )}
               </div>
             </div>
 

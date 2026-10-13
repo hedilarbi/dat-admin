@@ -26,11 +26,12 @@ const euros = (value: number | null | undefined) => (value == null ? '—' : `${
 
 /** Libellé et couleur du résultat de la clôture pour un véhicule. */
 const outcomeOf = (result: ClosureResult) => {
-  if (result.status === 'cloturee') return { label: 'Vendu', className: 'bg-[#e9f4ee] text-[#2f6f4f]' };
-  if (result.status === 'en_cours') return { label: 'Acheteur trouvé · vente en cours', className: 'bg-[#fff1e8] text-[#c65f37]' };
-  if (result.status === 'suspendue') return { label: 'Décision du vendeur', className: 'bg-[#fdf3ec] text-[#b45309]' };
-  if (result.status === 'annulee') return { label: 'Vente annulée', className: 'bg-[#fdece4] text-[#b91c1c]' };
-  return { label: 'Invendu', className: 'bg-[#fdece4] text-[#b91c1c]' };
+  // Une couleur franche par résultat (vert, bleu, jaune, rouge, gris) : orange et rouge pâles se confondaient
+  if (result.status === 'cloturee') return { label: 'Vendu', className: 'bg-[#16a34a] text-white' };
+  if (result.status === 'en_cours') return { label: 'Acheteur trouvé · vente en cours', className: 'bg-[#2563eb] text-white' };
+  if (result.status === 'suspendue') return { label: 'Décision du vendeur', className: 'bg-[#facc15] text-[#3b2f00]' };
+  if (result.status === 'annulee') return { label: 'Vente annulée', className: 'bg-[#6b7280] text-white' };
+  return { label: 'Invendu', className: 'bg-[#dc2626] text-white' };
 };
 
 const currentState = (result: ClosureResult) => {
@@ -76,7 +77,7 @@ export default function ClosureResults({ results, targets, onRelist }: ClosureRe
   };
 
   return (
-    <section className="border-b border-[#efece3] bg-[#fbfaf7]">
+    <section className="flex min-h-0 flex-1 flex-col bg-[#fbfaf7]">
       <div className="px-4 pt-4 sm:px-[26px]">
         <div className="text-[11px] font-bold uppercase leading-none tracking-[0.06em] text-[#4c5058]">
           Résultat de la clôture ({results.length} véhicule{results.length > 1 ? 's' : ''})
@@ -87,7 +88,7 @@ export default function ClosureResults({ results, targets, onRelist }: ClosureRe
         {error && <p className="mt-2 rounded-[8px] bg-red-50 p-2 text-[12px] text-red-700">{error}</p>}
       </div>
 
-      <ul className="max-h-[42vh] divide-y divide-[#efece3] overflow-y-auto px-4 py-2 sm:px-[26px]">
+      <ul className="min-h-0 flex-1 divide-y divide-[#efece3] overflow-y-auto px-4 py-2 sm:px-[26px]">
         {results.map((result) => {
           const outcome = outcomeOf(result);
           const state = currentState(result);
@@ -114,7 +115,7 @@ export default function ClosureResults({ results, targets, onRelist }: ClosureRe
                   {result.amount != null && result.status !== 'sans_gagnant' && (
                     <div className="mt-0.5 text-[12px] font-semibold text-[#13243c]">{euros(result.amount)}{result.winnerName ? ` · ${result.winnerName}` : ''}</div>
                   )}
-                  {state && <div className="mt-1 text-[11px] font-semibold text-[#b45309]">{state}</div>}
+                  {state && <div className="mt-1 text-[11px] font-semibold text-[#5a5e66]">{state}</div>}
                   {(result.status === 'sans_gagnant' || result.status === 'suspendue') && (
                     <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-[#5a5e66]">
                       {result.offerCount === 0 ? <span>Aucune offre</span> : (
