@@ -119,6 +119,8 @@ export default function InscriptionDetailPage() {
   const [confirmAction, setConfirmAction] = useState<{ type: 'approve' } | { type: 'status'; status: 'valide' | 'suspendu' | 'bloque' } | null>(null);
   const [suspensionNote, setSuspensionNote] = useState('');
   const [suspensionHistory, setSuspensionHistory] = useState<SuspensionEntry[]>([]);
+  // Fenêtre d'historique ouverte (suspensions ou montants réglés)
+  const [historyModal, setHistoryModal] = useState<'suspensions' | 'payments' | null>(null);
   const [penaltyPayments, setPenaltyPayments] = useState<PenaltyPayment[]>([]);
 
   const fetchSuspensionHistory = async (userId: string) => {
@@ -313,75 +315,29 @@ export default function InscriptionDetailPage() {
           </>
         )}
 
-        {/* Historique des suspensions et des pénalités réglées */}
-        {(['valide', 'suspendu', 'bloque'].includes(selectedUser.status) || suspensionHistory.length > 0 || penaltyPayments.length > 0) && (
-          <>
-            <div className="font-bold text-xs tracking-[0.06em] uppercase text-[#4c5058] mb-3">
-              Historique des suspensions
-            </div>
-            <div className="flex flex-col gap-3 mb-7">
-              {suspensionHistory.length === 0 ? (
-                <div className="text-xs text-gray-400 italic p-4 bg-white border rounded-[10px]">Aucune suspension enregistrée.</div>
-              ) : suspensionHistory.map((entry, idx) => (
-                <div key={idx} className={`border bg-white rounded-[10px] p-[14px_16px] ${entry.endedAt ? 'border-[#eceadf]' : 'border-[#f0c9bd]'}`}>
-                  <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
-                    <span className="font-semibold text-xs text-[#13243c]">
-                      {entry.status === 'bloque' ? 'Blocage' : 'Suspension'} · {SUSPENSION_REASON_LABELS[entry.reason] || entry.reason}
-                    </span>
-                    {entry.endedAt ? (
-                      <span className="text-[11px] text-[#2f6f4f] font-medium">
-                        {entry.endedBy === 'paiement' ? 'Levée après paiement' : 'Réactivé par l’admin'} le {formatDateTime(entry.endedAt)}
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-[#fdece4] px-2 py-0.5 text-[10px] font-bold uppercase text-[#b04a2c]">En cours</span>
-                    )}
-                  </div>
-                  <div className="text-xs text-[#4c5058] space-y-0.5">
-                    <div>Début : {formatDateTime(entry.startedAt)} · {entry.source === 'system' ? 'Automatique' : 'Admin'}</div>
-                    {entry.debtAmount != null && <div>Montant à régler : <strong className="text-[#13243c]">{formatEuros(entry.debtAmount)}</strong></div>}
-                    {entry.sale && (
-                      <div>Vente : <Link href={`/ventes/${entry.sale.id}`} className="font-semibold text-[#d9704f] hover:underline">{entry.sale.vehicleLabel || 'Voir la vente'}</Link></div>
-                    )}
-                  </div>
-                  {entry.note && (
-                    <p className="text-xs italic text-[#5a5e66] bg-[#fbfaf7] border rounded p-2 mt-2">&quot;{entry.note}&quot;</p>
-                  )}
-                </div>
-              ))}
-            </div>
+        {/* Modifications demandées : avant les informations, le profil en dessous reste celui en vigueur */}
+        {selectedUser.profileChangePending && <ProfileChangesPanel user={selectedUser} />}
 
-            <div className="font-bold text-xs tracking-[0.06em] uppercase text-[#4c5058] mb-3">
+        {/* Historiques (suspensions, montants réglés) : dans des fenêtres, pour alléger la page */}
+        {(['valide', 'suspendu', 'bloque'].includes(selectedUser.status) || suspensionHistory.length > 0 || penaltyPayments.length > 0) && (
+          <div className="mb-7 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => setHistoryModal('suspensions')}
+              className="inline-flex items-center gap-2.5 rounded-[9px] border border-[#dcd7cb] bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-[0.04em] text-[#13243c] transition hover:bg-[#f8f7f2]"
+            >
+              Historique des suspensions
+              <span className={`inline-flex min-w-[22px] items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-bold ${suspensionHistory.some((entry) => !entry.endedAt) ? 'bg-[#b04a2c] text-white' : 'bg-[#eef1f5] text-[#13243c]'}`}>{suspensionHistory.length}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setHistoryModal('payments')}
+              className="inline-flex items-center gap-2.5 rounded-[9px] border border-[#dcd7cb] bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-[0.04em] text-[#13243c] transition hover:bg-[#f8f7f2]"
+            >
               Montants réglés
-            </div>
-            <div className="mb-7">
-              {penaltyPayments.length === 0 ? (
-                <div className="text-xs text-gray-400 italic p-4 bg-white border rounded-[10px]">Aucun montant réglé.</div>
-              ) : (
-                <div className="border border-[#eceadf] bg-white rounded-[10px] divide-y divide-[#f1efe8]">
-                  {penaltyPayments.map((payment) => (
-                    <div key={payment.id} className="flex flex-wrap items-center justify-between gap-2 p-[12px_16px]">
-                      <div className="min-w-0">
-                        <div className="font-semibold text-xs text-[#13243c]">
-                          {(payment.debtReason && DEBT_REASON_LABELS[payment.debtReason]) || 'Réactivation du compte'}
-                        </div>
-                        <div className="text-[11px] text-[#5a5e66] mt-0.5">
-                          {formatDateTime(payment.paidAt)}
-                          {payment.sale && <> · <Link href={`/ventes/${payment.sale.id}`} className="font-semibold text-[#d9704f] hover:underline">{payment.sale.vehicleLabel || 'Voir la vente'}</Link></>}
-                          {payment.stripeReference && <> · <span className="font-mono">{payment.stripeReference}</span></>}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-mono font-bold text-sm text-[#13243c]">{formatEuros(payment.amount)}</div>
-                        <div className={`text-[10px] font-bold uppercase ${payment.status === 'paye' ? 'text-[#2f6f4f]' : 'text-[#b04a2c]'}`}>
-                          {payment.status === 'paye' ? 'Payé' : payment.status === 'en_attente' ? 'En attente' : 'Échoué'}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </>
+              <span className="inline-flex min-w-[22px] items-center justify-center rounded-full bg-[#eef1f5] px-1.5 py-0.5 text-[11px] font-bold text-[#13243c]">{penaltyPayments.length}</span>
+            </button>
+          </div>
         )}
 
         {/* Informations société */}
@@ -420,9 +376,6 @@ export default function InscriptionDetailPage() {
             <div className="font-semibold text-sm text-[#13243c] mt-1.5">{selectedUser.phone}</div>
           </div>
         </div>
-
-        {/* Modifications demandées : mises de côté, le profil ci-dessus reste celui en vigueur */}
-        {selectedUser.profileChangePending && <ProfileChangesPanel user={selectedUser} />}
 
         {/* Documents fournis */}
         <div className="font-bold text-xs tracking-[0.06em] uppercase text-[#4c5058] mb-3">
@@ -503,18 +456,95 @@ export default function InscriptionDetailPage() {
         <div className="h-16" aria-hidden="true" />
       </div>
 
+      {historyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#13243c]/55 p-4 backdrop-blur-sm" onClick={() => setHistoryModal(null)}>
+          <div role="dialog" aria-modal="true" className="flex max-h-[85vh] w-full max-w-[640px] flex-col overflow-hidden rounded-[16px] bg-white shadow-[0_26px_70px_rgba(0,0,0,0.3)]" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-start justify-between border-b border-[#efece3] px-6 py-5">
+              <div>
+                <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#a3987f]">{selectedUser.companyName}</div>
+                <h2 className="mt-1 text-xl font-bold uppercase text-[#13243c]">
+                  {historyModal === 'suspensions' ? `Historique des suspensions (${suspensionHistory.length})` : `Montants réglés (${penaltyPayments.length})`}
+                </h2>
+              </div>
+              <button type="button" onClick={() => setHistoryModal(null)} className="flex h-9 w-9 items-center justify-center rounded-[8px] border border-[#dcd7cb] text-[#5a5e66] hover:bg-gray-50" aria-label="Fermer">×</button>
+            </div>
+            <div className="overflow-y-auto p-6">
+              {historyModal === 'suspensions' ? (
+                <>
+            <div className="flex flex-col gap-3 mb-7">
+              {suspensionHistory.length === 0 ? (
+                <div className="text-xs text-gray-400 italic p-4 bg-white border rounded-[10px]">Aucune suspension enregistrée.</div>
+              ) : suspensionHistory.map((entry, idx) => (
+                <div key={idx} className={`border bg-white rounded-[10px] p-[14px_16px] ${entry.endedAt ? 'border-[#eceadf]' : 'border-[#f0c9bd]'}`}>
+                  <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
+                    <span className="font-semibold text-xs text-[#13243c]">
+                      {entry.status === 'bloque' ? 'Blocage' : 'Suspension'} · {SUSPENSION_REASON_LABELS[entry.reason] || entry.reason}
+                    </span>
+                    {entry.endedAt ? (
+                      <span className="text-[11px] text-[#2f6f4f] font-medium">
+                        {entry.endedBy === 'paiement' ? 'Levée après paiement' : 'Réactivé par l’admin'} le {formatDateTime(entry.endedAt)}
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-[#fdece4] px-2 py-0.5 text-[10px] font-bold uppercase text-[#b04a2c]">En cours</span>
+                    )}
+                  </div>
+                  <div className="text-xs text-[#4c5058] space-y-0.5">
+                    <div>Début : {formatDateTime(entry.startedAt)} · {entry.source === 'system' ? 'Automatique' : 'Admin'}</div>
+                    {entry.debtAmount != null && <div>Montant à régler : <strong className="text-[#13243c]">{formatEuros(entry.debtAmount)}</strong></div>}
+                    {entry.sale && (
+                      <div>Vente : <Link href={`/ventes/${entry.sale.id}`} className="font-semibold text-[#d9704f] hover:underline">{entry.sale.vehicleLabel || 'Voir la vente'}</Link></div>
+                    )}
+                  </div>
+                  {entry.note && (
+                    <p className="text-xs italic text-[#5a5e66] bg-[#fbfaf7] border rounded p-2 mt-2">&quot;{entry.note}&quot;</p>
+                  )}
+                </div>
+              ))}
+            </div>
+                </>
+              ) : (
+                <>
+            <div className="mb-7">
+              {penaltyPayments.length === 0 ? (
+                <div className="text-xs text-gray-400 italic p-4 bg-white border rounded-[10px]">Aucun montant réglé.</div>
+              ) : (
+                <div className="border border-[#eceadf] bg-white rounded-[10px] divide-y divide-[#f1efe8]">
+                  {penaltyPayments.map((payment) => (
+                    <div key={payment.id} className="flex flex-wrap items-center justify-between gap-2 p-[12px_16px]">
+                      <div className="min-w-0">
+                        <div className="font-semibold text-xs text-[#13243c]">
+                          {(payment.debtReason && DEBT_REASON_LABELS[payment.debtReason]) || 'Réactivation du compte'}
+                        </div>
+                        <div className="text-[11px] text-[#5a5e66] mt-0.5">
+                          {formatDateTime(payment.paidAt)}
+                          {payment.sale && <> · <Link href={`/ventes/${payment.sale.id}`} className="font-semibold text-[#d9704f] hover:underline">{payment.sale.vehicleLabel || 'Voir la vente'}</Link></>}
+                          {payment.stripeReference && <> · <span className="font-mono">{payment.stripeReference}</span></>}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-mono font-bold text-sm text-[#13243c]">{formatEuros(payment.amount)}</div>
+                        <div className={`text-[10px] font-bold uppercase ${payment.status === 'paye' ? 'text-[#2f6f4f]' : 'text-[#b04a2c]'}`}>
+                          {payment.status === 'paye' ? 'Payé' : payment.status === 'en_attente' ? 'En attente' : 'Échoué'}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Right Sticky Decision Box */}
       <div className="w-full xl:w-[360px] shrink-0">
         <div className="border border-[#eceadf] bg-white rounded-[14px] p-6 sticky top-6 shadow-sm">
           <div className="font-bold text-xs tracking-[0.06em] uppercase text-[#4c5058] mb-4">
             Décision administrateur
           </div>
-
-          {selectedUser.status === 'soumis' && selectedUser.profileChangePending && (
-            <p className="mb-4 rounded-[9px] bg-[#fdf3ec] p-3 text-[12px] leading-5 text-[#8a4b24]">
-              Demande de modification de compte : <strong>valider</strong> intègre les modifications au profil ; <strong>refuser</strong> les abandonne et conserve le profil actuel, déjà validé.
-            </p>
-          )}
 
           {selectedUser.status === 'soumis' && (
             <div className={`grid gap-2 mb-5 ${selectedUser.profileChangePending ? 'grid-cols-2' : 'grid-cols-3'}`}>

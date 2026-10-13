@@ -8,6 +8,8 @@ export interface ClosureResult {
   status: 'en_cours' | 'suspendue' | 'cloturee' | 'sans_gagnant' | 'annulee';
   amount: number | null;
   winnerName: string | null;
+  winnerId: string | null;
+  winnerRole: 'acheteur' | 'vendeur';
   sellerDecisionDueAt: string | null;
   vehicleState: 'en_attente' | 'dans_cette_session' | 'remis_en_session';
   otherSessionName: string | null;
@@ -113,7 +115,16 @@ export default function ClosureResults({ results, targets, onRelist }: ClosureRe
                     {vehicle?.lotNumber ? `Lot #${vehicle.lotNumber} · ` : ''}{vehicle?.registrationNumber || '—'} · Réserve {euros(vehicle?.reservePrice)} · {vehicle?.listingCount ?? 0} mise{(vehicle?.listingCount ?? 0) > 1 ? 's' : ''} en vente
                   </div>
                   {result.amount != null && result.status !== 'sans_gagnant' && (
-                    <div className="mt-0.5 text-[12px] font-semibold text-[#13243c]">{euros(result.amount)}{result.winnerName ? ` · ${result.winnerName}` : ''}</div>
+                    <div className="mt-0.5 text-[12px] font-semibold text-[#13243c]">
+                      {euros(result.amount)}
+                      {result.winnerName && ' · '}
+                      {result.winnerName && (result.winnerId ? (
+                        // Fiche d'inscription de l'acheteur, dans un nouvel onglet pour garder la session ouverte
+                        <Link href={`/inscription/${result.winnerRole === 'vendeur' ? 'vendeur' : 'acheteur'}/${result.winnerId}`} target="_blank" rel="noopener noreferrer" className="underline decoration-[#d9704f] decoration-2 underline-offset-2 hover:text-[#d9704f]">
+                          {result.winnerName}
+                        </Link>
+                      ) : result.winnerName)}
+                    </div>
                   )}
                   {state && <div className="mt-1 text-[11px] font-semibold text-[#5a5e66]">{state}</div>}
                   {(result.status === 'sans_gagnant' || result.status === 'suspendue') && (
