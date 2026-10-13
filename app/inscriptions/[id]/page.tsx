@@ -10,6 +10,7 @@ import Spinner from '../../components/Spinner';
 import ConfirmModal from '../../components/ConfirmModal';
 import { Badge, getInscriptionStatusBadge } from '../../components/StatusBadge';
 import DocumentReceivedCard from '../../components/DocumentReceivedCard';
+import ProfileChangesPanel from './ProfileChangesPanel';
 
 interface UserProfile {
   _id: string;
@@ -30,6 +31,9 @@ interface UserProfile {
   address?: { street: string; city: string; country: string; postalCode: string; };
   bankInfo?: { bankName: string; accountHolder: string; iban: string; bic: string; ribUrl?: string; };
   rejections?: RejectionEntry[];
+  /** Compte validé qui a demandé une modification : en attente de la décision de l'admin */
+  profileChangePending?: boolean;
+  pendingProfile?: { changes?: Record<string, unknown>; submittedAt?: string };
   suspension?: {
     note?: string;
     source?: 'admin' | 'system';
@@ -417,6 +421,9 @@ export default function InscriptionDetailPage() {
           </div>
         </div>
 
+        {/* Modifications demandées : mises de côté, le profil ci-dessus reste celui en vigueur */}
+        {selectedUser.profileChangePending && <ProfileChangesPanel user={selectedUser} />}
+
         {/* Documents fournis */}
         <div className="font-bold text-xs tracking-[0.06em] uppercase text-[#4c5058] mb-3">
           Documents fournis
@@ -503,8 +510,14 @@ export default function InscriptionDetailPage() {
             Décision administrateur
           </div>
 
+          {selectedUser.status === 'soumis' && selectedUser.profileChangePending && (
+            <p className="mb-4 rounded-[9px] bg-[#fdf3ec] p-3 text-[12px] leading-5 text-[#8a4b24]">
+              Demande de modification de compte : <strong>valider</strong> intègre les modifications au profil ; <strong>refuser</strong> les abandonne et conserve le profil actuel, déjà validé.
+            </p>
+          )}
+
           {selectedUser.status === 'soumis' && (
-            <div className="grid grid-cols-3 gap-2 mb-5">
+            <div className={`grid gap-2 mb-5 ${selectedUser.profileChangePending ? 'grid-cols-2' : 'grid-cols-3'}`}>
               <button
                 type="button"
                 onClick={() => setConfirmAction({ type: 'approve' })}
@@ -514,13 +527,13 @@ export default function InscriptionDetailPage() {
                 {actionLoading === 'approve' && <Spinner />}
                 Valider
               </button>
-              <button
+              {!selectedUser.profileChangePending && <button
                 type="button"
                 onClick={() => { setDecisionMode('correction'); setError(''); setMessage(''); }}
                 className={`py-2 rounded-[8px] font-bold text-xs uppercase transition cursor-pointer select-none text-center ${decisionMode === 'correction' ? 'bg-[#d9704f] text-white ring-2 ring-offset-1 ring-[#d9704f]' : 'bg-[#faf1e4] text-[#b3893f] hover:bg-[#f5e7d4]'}`}
               >
                 Correction
-              </button>
+              </button>}
               <button
                 type="button"
                 onClick={() => { setDecisionMode('refuser'); setError(''); setMessage(''); }}
