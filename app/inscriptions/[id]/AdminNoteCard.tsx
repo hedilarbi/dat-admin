@@ -40,7 +40,6 @@ export default function AdminNoteCard({ userId, initialText, updatedAt }: AdminN
     <section className="mb-7 rounded-[12px] border border-[#e5e1d7] bg-[#fffdf5] p-4 sm:p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div className="text-xs font-bold uppercase tracking-[0.06em] text-[#4c5058]">Note interne</div>
-        <div className="text-[11px] font-semibold text-[#8a6a2f]">🔒 Visible et modifiable uniquement par l’administration</div>
       </div>
       <textarea
         value={text}
