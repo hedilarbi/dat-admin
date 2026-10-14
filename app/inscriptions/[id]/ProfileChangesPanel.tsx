@@ -17,14 +17,14 @@ interface PanelUser {
   pendingProfile?: { changes?: Record<string, unknown>; submittedAt?: string };
 }
 
-const LABELS: Record<string, string> = {
+export const LABELS: Record<string, string> = {
   firstName: 'Prénom', lastName: 'Nom', companyName: 'Raison sociale', activityType: 'Type d’activité',
   phone: 'Téléphone', siret: 'SIRET', vhuNumber: 'N° agrément VHU',
   kbisUrl: 'K-bis', cinRectoUrl: 'Pièce d’identité (recto)', cinVersoUrl: 'Pièce d’identité (verso)', stampUrl: 'Tampon',
   'address.street': 'Adresse : rue', 'address.postalCode': 'Adresse : code postal', 'address.city': 'Adresse : ville', 'address.country': 'Adresse : pays',
   'bankInfo.bankName': 'Banque', 'bankInfo.accountHolder': 'Titulaire du compte', 'bankInfo.iban': 'IBAN', 'bankInfo.bic': 'BIC', 'bankInfo.ribUrl': 'RIB (document)',
 };
-const DOCUMENT_FIELDS = new Set(['kbisUrl', 'cinRectoUrl', 'cinVersoUrl', 'stampUrl', 'bankInfo.ribUrl']);
+export const DOCUMENT_FIELDS = new Set(['kbisUrl', 'cinRectoUrl', 'cinVersoUrl', 'stampUrl', 'bankInfo.ribUrl']);
 
 const text = (value: unknown) => (value === null || value === undefined ? '' : String(value).trim());
 

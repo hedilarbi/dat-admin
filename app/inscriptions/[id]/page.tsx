@@ -11,6 +11,8 @@ import ConfirmModal from '../../components/ConfirmModal';
 import { Badge, getInscriptionStatusBadge } from '../../components/StatusBadge';
 import DocumentReceivedCard from '../../components/DocumentReceivedCard';
 import ProfileChangesPanel from './ProfileChangesPanel';
+import ProfileHistoryList, { type ProfileHistoryEntry } from './ProfileHistoryList';
+import AdminNoteCard from './AdminNoteCard';
 
 interface UserProfile {
   _id: string;
@@ -120,7 +122,9 @@ export default function InscriptionDetailPage() {
   const [suspensionNote, setSuspensionNote] = useState('');
   const [suspensionHistory, setSuspensionHistory] = useState<SuspensionEntry[]>([]);
   // Fenêtre d'historique ouverte (suspensions ou montants réglés)
-  const [historyModal, setHistoryModal] = useState<'suspensions' | 'payments' | null>(null);
+  const [historyModal, setHistoryModal] = useState<'suspensions' | 'payments' | 'profiles' | null>(null);
+  // Données réservées à l'admin : note interne et historique des modifications de profil
+  const [adminData, setAdminData] = useState<{ adminNote: { text: string; updatedAt: string | null }; profileHistory: ProfileHistoryEntry[] } | null>(null);
   const [penaltyPayments, setPenaltyPayments] = useState<PenaltyPayment[]>([]);
 
   const fetchSuspensionHistory = async (userId: string) => {
@@ -128,6 +132,15 @@ export default function InscriptionDetailPage() {
       const res = await apiRequest(`/admin/users/${userId}/suspension-history`);
       setSuspensionHistory(res.suspensions || []);
       setPenaltyPayments(res.penaltyPayments || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchAdminData = async (userId: string) => {
+    try {
+      const res = await apiRequest(`/admin/users/${userId}/admin-data`);
+      setAdminData({ adminNote: res.adminNote || { text: '', updatedAt: null }, profileHistory: res.profileHistory || [] });
     } catch (err) {
       console.error(err);
     }
@@ -158,7 +171,7 @@ export default function InscriptionDetailPage() {
   };
 
   useEffect(() => {
-    Promise.all([fetchUser(), fetchRefusalReasons(), fetchSuspensionHistory(params.id as string)]).finally(() => {
+    Promise.all([fetchUser(), fetchRefusalReasons(), fetchSuspensionHistory(params.id as string), fetchAdminData(params.id as string)]).finally(() => {
       setLoading(false);
     });
   }, [params.id]);
@@ -226,6 +239,7 @@ export default function InscriptionDetailPage() {
       setSelectedUser(res.user || { ...selectedUser, status: newStatus as any });
       setSuspensionNote('');
       await fetchSuspensionHistory(selectedUser._id);
+      await fetchAdminData(selectedUser._id);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -318,9 +332,17 @@ export default function InscriptionDetailPage() {
         {/* Modifications demandées : avant les informations, le profil en dessous reste celui en vigueur */}
         {selectedUser.profileChangePending && <ProfileChangesPanel user={selectedUser} />}
 
-        {/* Historiques (suspensions, montants réglés) : dans des fenêtres, pour alléger la page */}
+        {/* Historiques (suspensions, montants réglés, profils) : dans des fenêtres, pour alléger la page */}
         {(['valide', 'suspendu', 'bloque'].includes(selectedUser.status) || suspensionHistory.length > 0 || penaltyPayments.length > 0) && (
           <div className="mb-7 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => setHistoryModal('profiles')}
+              className="inline-flex items-center gap-2.5 rounded-[9px] border border-[#dcd7cb] bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-[0.04em] text-[#13243c] transition hover:bg-[#f8f7f2]"
+            >
+              Historique des profils
+              <span className="inline-flex min-w-[22px] items-center justify-center rounded-full bg-[#eef1f5] px-1.5 py-0.5 text-[11px] font-bold text-[#13243c]">{adminData?.profileHistory.length ?? 0}</span>
+            </button>
             <button
               type="button"
               onClick={() => setHistoryModal('suspensions')}
@@ -338,6 +360,11 @@ export default function InscriptionDetailPage() {
               <span className="inline-flex min-w-[22px] items-center justify-center rounded-full bg-[#eef1f5] px-1.5 py-0.5 text-[11px] font-bold text-[#13243c]">{penaltyPayments.length}</span>
             </button>
           </div>
+        )}
+
+        {/* Note interne : seul l'admin la voit et la modifie */}
+        {adminData && (
+          <AdminNoteCard key={selectedUser._id} userId={selectedUser._id} initialText={adminData.adminNote.text} updatedAt={adminData.adminNote.updatedAt} />
         )}
 
         {/* Informations société */}
@@ -458,18 +485,24 @@ export default function InscriptionDetailPage() {
 
       {historyModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#13243c]/55 p-4 backdrop-blur-sm" onClick={() => setHistoryModal(null)}>
-          <div role="dialog" aria-modal="true" className="flex max-h-[85vh] w-full max-w-[640px] flex-col overflow-hidden rounded-[16px] bg-white shadow-[0_26px_70px_rgba(0,0,0,0.3)]" onClick={(event) => event.stopPropagation()}>
+          <div role="dialog" aria-modal="true" className="flex max-h-[85vh] w-full max-w-[780px] flex-col overflow-hidden rounded-[16px] bg-white shadow-[0_26px_70px_rgba(0,0,0,0.3)]" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-start justify-between border-b border-[#efece3] px-6 py-5">
               <div>
                 <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#a3987f]">{selectedUser.companyName}</div>
                 <h2 className="mt-1 text-xl font-bold uppercase text-[#13243c]">
-                  {historyModal === 'suspensions' ? `Historique des suspensions (${suspensionHistory.length})` : `Montants réglés (${penaltyPayments.length})`}
+                  {historyModal === 'suspensions'
+                    ? `Historique des suspensions (${suspensionHistory.length})`
+                    : historyModal === 'profiles'
+                      ? `Historique des profils (${adminData?.profileHistory.length ?? 0})`
+                      : `Montants réglés (${penaltyPayments.length})`}
                 </h2>
               </div>
               <button type="button" onClick={() => setHistoryModal(null)} className="flex h-9 w-9 items-center justify-center rounded-[8px] border border-[#dcd7cb] text-[#5a5e66] hover:bg-gray-50" aria-label="Fermer">×</button>
             </div>
             <div className="overflow-y-auto p-6">
-              {historyModal === 'suspensions' ? (
+              {historyModal === 'profiles' ? (
+                <ProfileHistoryList entries={adminData?.profileHistory || []} />
+              ) : historyModal === 'suspensions' ? (
                 <>
             <div className="flex flex-col gap-3 mb-7">
               {suspensionHistory.length === 0 ? (
