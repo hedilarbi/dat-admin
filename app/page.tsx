@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { stepDisplayNumber } from './lib/saleSteps';
 import { useRouter } from 'next/navigation';
 import { useUser } from './components/LayoutWrapper';
 import { apiRequest } from './api';
@@ -14,6 +13,10 @@ interface DashboardStats {
     sellers: number;
     dossiers: number;
     tickets: number;
+    criticalSales?: number;
+    unsoldVehicles?: number;
+    unsoldThreshold?: number;
+    waitingVehicles?: number;
     latePayments?: Array<{
       _id: string;
       vehicle: {
@@ -55,8 +58,6 @@ export default function Home() {
   const router = useRouter();
   const { user, loading } = useUser();
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [maxedOutVehicles, setMaxedOutVehicles] = useState<any[]>([]);
-  const [maxedOutThreshold, setMaxedOutThreshold] = useState(3);
   const [loadingStats, setLoadingStats] = useState(true);
 
   useEffect(() => {
@@ -68,13 +69,8 @@ export default function Home() {
 
     const fetchStats = async () => {
       try {
-        const [resStats, resMaxedOut] = await Promise.all([
-          apiRequest('/admin/dashboard-stats').catch(() => null),
-          apiRequest('/admin/vehicle-dossiers/tentatives-max?limit=5').catch(() => null)
-        ]);
+        const resStats = await apiRequest('/admin/dashboard-stats').catch(() => null);
         if (resStats && resStats.data) setStats(resStats.data);
-        if (resMaxedOut && resMaxedOut.vehicles) setMaxedOutVehicles(resMaxedOut.vehicles);
-        if (resMaxedOut && resMaxedOut.threshold) setMaxedOutThreshold(resMaxedOut.threshold);
       } catch (err) {
         console.error('Failed to fetch dashboard stats', err);
       } finally {
@@ -171,91 +167,54 @@ export default function Home() {
                 → Répondre au support
               </p>
             </Link>
-          </div>
 
-          {/* Alertes Paiements & Ventes Critiques */}
-          {stats.pendingActions.latePayments && stats.pendingActions.latePayments.length > 0 && (
-            <div className="mt-8 bg-[#fff7f1] border border-[#B04A2C] rounded-[12px] overflow-hidden shadow-sm">
-              <div className="bg-[#B04A2C] px-6 py-3 flex items-center justify-between">
-                <h3 className="text-white font-bold uppercase tracking-wide text-[14px]">
-                  🚨 Ventes critiques (Étape 1 ou 2 · entre 80% et 100% du délai)
-                </h3>
-                <span className="bg-white text-[#B04A2C] text-[12px] font-bold px-2.5 py-1 rounded-full">
-                  {stats.pendingActions.latePayments.length} alerte(s)
+            {/* Ventes critiques : étape 1 ou 2 au-delà de 80 % du délai */}
+            <Link href="/ventes?filtre=critiques" className="bg-white rounded-[12px] border border-red-100 shadow-sm hover:shadow-md transition p-6 flex flex-col relative overflow-hidden group">
+              <div className="absolute top-0 left-0 w-1 h-full bg-[#B04A2C]"></div>
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-[14px] font-bold text-gray-600 uppercase tracking-wide">Ventes critiques</h3>
+                <span className="w-8 h-8 rounded-full bg-red-100 text-[#B04A2C] flex items-center justify-center font-bold text-[14px]">
+                  {stats.pendingActions.criticalSales ?? stats.pendingActions.latePayments?.length ?? 0}
                 </span>
               </div>
-              <div className="divide-y divide-[#B04A2C]/20">
-                {stats.pendingActions.latePayments.map(sale => (
-                  <div key={sale._id} className="p-4 px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-[#fff0e6] transition">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-bold text-[#13243c]">
-                          {[sale.vehicle?.brand, sale.vehicle?.model].filter(Boolean).join(' ')} {sale.vehicle?.year ? `(${sale.vehicle.year})` : ''}
-                        </span>
-                        {sale.currentStep && (
-                          <span className="bg-[#B04A2C] text-white text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full">
-                            Étape {stepDisplayNumber(sale.currentStep)}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[13px] text-gray-600 mt-1">
-                        Acheteur : <span className="font-medium">{sale.winner?.firstName} {sale.winner?.lastName} {sale.winner?.companyName ? `(${sale.winner.companyName})` : ''}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4 justify-between sm:justify-end">
-                      <div className="text-left sm:text-right">
-                        <div className="text-[12px] text-gray-500 uppercase tracking-widest">Montant</div>
-                        <div className="font-bold text-[#B04A2C]">{formatEuros(sale.winningOfferAmount || 0)}</div>
-                      </div>
-                      <Link href={`/ventes/${sale._id}`} className="bg-[#B04A2C] hover:bg-[#8c3b23] text-white text-[13px] font-bold px-4 py-2 rounded-[6px] transition shrink-0">
-                        Ouvrir la vente →
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        
-          {/* Véhicules invendus */}
-          {maxedOutVehicles && maxedOutVehicles.length > 0 && (
-            <div className="mt-6 bg-[#fffbf0] border border-[#d4a017] rounded-[12px] overflow-hidden shadow-sm">
-              <div className="bg-[#d4a017] px-6 py-3 flex items-center justify-between">
-                <h3 className="text-white font-bold uppercase tracking-wide text-[14px]">
-                  ⚠️ Véhicules invendus ({maxedOutThreshold} tentatives ou plus)
-                </h3>
-                <span className="bg-white text-[#d4a017] text-[12px] font-bold px-2.5 py-1 rounded-full">
-                  {maxedOutVehicles.length} véhicule(s)
+              <p className="text-[12px] text-gray-400 mt-auto group-hover:text-[#B04A2C] transition font-medium">
+                → Voir les ventes critiques
+              </p>
+            </Link>
+
+            {/* Véhicules invendus : tentatives de mise en vente épuisées */}
+            <Link href="/vehicules?filtre=invendus" className="bg-white rounded-[12px] border border-yellow-100 shadow-sm hover:shadow-md transition p-6 flex flex-col relative overflow-hidden group">
+              <div className="absolute top-0 left-0 w-1 h-full bg-[#d4a017]"></div>
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-[14px] font-bold text-gray-600 uppercase tracking-wide">Véhicules invendus</h3>
+                  {stats.pendingActions.unsoldThreshold ? (
+                    <p className="mt-0.5 text-[11px] text-gray-400">{stats.pendingActions.unsoldThreshold} tentatives ou plus</p>
+                  ) : null}
+                </div>
+                <span className="w-8 h-8 rounded-full bg-yellow-100 text-[#a07a0f] flex items-center justify-center font-bold text-[14px]">
+                  {stats.pendingActions.unsoldVehicles ?? 0}
                 </span>
               </div>
-              <div className="divide-y divide-[#d4a017]/20">
-                {maxedOutVehicles.map(vehicle => (
-                  <div key={vehicle._id} className="p-4 px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-[#fff6d6] transition">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-bold text-[#13243c]">
-                          {[vehicle.brand, vehicle.model].filter(Boolean).join(' ')} {vehicle.year ? `(${vehicle.year})` : ''}
-                        </span>
-                        <span className="bg-[#d4a017] text-white text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full">
-                          {vehicle.listingCount} TENTATIVES
-                        </span>
-                      </div>
-                      <div className="text-[13px] text-gray-600 mt-1">
-                        Immatriculation : <span className="font-medium">{vehicle.registrationNumber || vehicle.vin || '—'}</span>
-                        <br/>
-                        Vendeur : <span className="font-medium">{vehicle.seller?.companyName || '—'}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-end">
-                      <Link href={`/dossiers/${vehicle._id}`} className="bg-[#d4a017] hover:bg-[#b58814] text-white text-[13px] font-bold px-4 py-2 rounded-[6px] transition shrink-0">
-                        Ouvrir le dossier →
-                      </Link>
-                    </div>
-                  </div>
-                ))}
+              <p className="text-[12px] text-gray-400 mt-auto group-hover:text-[#a07a0f] transition font-medium">
+                → Voir les véhicules invendus
+              </p>
+            </Link>
+
+            {/* Véhicules validés qui attendent d'être affectés à une session */}
+            <Link href="/vehicules?etat=en_attente" className="bg-white rounded-[12px] border border-slate-200 shadow-sm hover:shadow-md transition p-6 flex flex-col relative overflow-hidden group">
+              <div className="absolute top-0 left-0 w-1 h-full bg-[#6b7280]"></div>
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-[14px] font-bold text-gray-600 uppercase tracking-wide">Véhicules en attente de session</h3>
+                <span className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-[14px]">
+                  {stats.pendingActions.waitingVehicles ?? 0}
+                </span>
               </div>
-            </div>
-          )}
+              <p className="text-[12px] text-gray-400 mt-auto group-hover:text-slate-600 transition font-medium">
+                → Affecter à une session
+              </p>
+            </Link>
+          </div>
         </section>
 
         {/* Section 2: KPIs */}

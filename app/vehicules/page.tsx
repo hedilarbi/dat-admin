@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { apiRequest } from '../api';
 import Alert from '../components/Alert';
 import StatCard from '../components/StatCard';
@@ -71,7 +71,7 @@ interface VehicleSaleRow {
 }
 
 type ColumnKey =
-  | 'coverPhoto' | 'brand' | 'model' | 'registrationNumber' | 'seller' | 'saleState' | 'session'
+  | 'maxedOut' | 'coverPhoto' | 'brand' | 'model' | 'registrationNumber' | 'seller' | 'saleState' | 'session'
   | 'amount' | 'winner' | 'reservePrice' | 'offerCount' | 'listingCount' | 'procedure' | 'submittedAt'
   | 'year' | 'co2' | 'energyLabel' | 'vehicleGenre' | 'fiscalPower' | 'bodyType'
   | 'vin' | 'gearbox' | 'color' | 'mileage' | 'vrade' | 'registrationCardAvailable'
@@ -157,7 +157,25 @@ const formatEuros = (value?: number) =>
 const personName = (person?: DossierSeller) =>
   person?.companyName || [person?.firstName, person?.lastName].filter(Boolean).join(' ') || '—';
 
-export default function AdminVehiculesPage() {
+// Cartes du tableau de bord : /vehicules?filtre=invendus (tentatives épuisées) ou /vehicules?etat=en_attente
+// (en attente de session) ouvrent la liste déjà filtrée
+const PRESET_STATES = ['en_attente', 'en_enchere', 'decision_vendeur', 'en_cours_vente', 'vendu'];
+
+export default function AdminVehiculesPageWithFilters() {
+  return (
+    <Suspense fallback={null}>
+      <AdminVehiculesPage />
+    </Suspense>
+  );
+}
+
+function AdminVehiculesPage() {
+  const searchParams = useSearchParams();
+  const presetState = searchParams.get('etat');
+  const presetFilters: Partial<Record<ColumnKey, string>> = {
+    ...(searchParams.get('filtre') === 'invendus' ? { maxedOut: 'true' } : {}),
+    ...(presetState && PRESET_STATES.includes(presetState) ? { saleState: presetState } : {}),
+  };
   const router = useRouter();
 
   const [vehicles, setVehicles] = useState<VehicleSaleRow[]>([]);
@@ -166,8 +184,8 @@ export default function AdminVehiculesPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  const [draftFilters, setDraftFilters] = useState<Partial<Record<ColumnKey, string>>>({});
-  const [appliedFilters, setAppliedFilters] = useState<Partial<Record<ColumnKey, string>>>({});
+  const [draftFilters, setDraftFilters] = useState<Partial<Record<ColumnKey, string>>>(presetFilters);
+  const [appliedFilters, setAppliedFilters] = useState<Partial<Record<ColumnKey, string>>>(presetFilters);
 
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
@@ -420,6 +438,15 @@ export default function AdminVehiculesPage() {
         <StatCard label="Vendus" value={counts.vendu} bg="#9333ea" labelColor="#e9d5ff" valueColor="#ffffff" />
       </div>
 
+
+      {appliedFilters.maxedOut && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-2 rounded-full bg-[#13243c] px-3.5 py-1.5 text-[12px] font-bold text-white">
+            Véhicules invendus · tentatives de mise en vente épuisées
+            <button type="button" aria-label="Retirer ce filtre" onClick={() => { setAppliedFilters((current) => { const next = { ...current }; delete next.maxedOut; return next; }); setPage(1); }} className="text-white/80 hover:text-white">×</button>
+          </span>
+        </div>
+      )}
 
       {error && <Alert variant="error" className="mb-4">{error}</Alert>}
 

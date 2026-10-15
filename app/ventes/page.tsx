@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { apiRequest } from '../api';
 import Alert from '../components/Alert';
 import StatCard from '../components/StatCard';
@@ -37,7 +37,7 @@ interface SaleRow {
   winner?: DossierSeller | null;
 }
 
-type ColumnKey = 'coverPhoto' | 'brand' | 'model' | 'registrationNumber' | 'seller' | 'winner' | 'session' | 'amount' | 'currentStep' | 'createdAt' | 'status';
+type ColumnKey = 'critical' | 'coverPhoto' | 'brand' | 'model' | 'registrationNumber' | 'seller' | 'winner' | 'session' | 'amount' | 'currentStep' | 'createdAt' | 'status';
 
 interface TableColumn {
   key: ColumnKey;
@@ -73,7 +73,18 @@ const stepLabel = (row: SaleRow) => (row.status === 'en_cours' ? stepDisplayNumb
 
 type StatusCounts = Record<SaleStatus, number>;
 
-export default function AdminVentesPage() {
+// Carte « Ventes critiques » du tableau de bord : /ventes?filtre=critiques ouvre la liste déjà filtrée
+export default function AdminVentesPageWithFilters() {
+  return (
+    <Suspense fallback={null}>
+      <AdminVentesPage />
+    </Suspense>
+  );
+}
+
+function AdminVentesPage() {
+  const searchParams = useSearchParams();
+  const presetFilters: Partial<Record<ColumnKey, string>> = searchParams.get('filtre') === 'critiques' ? { critical: 'true' } : {};
   const router = useRouter();
 
   const [sales, setSales] = useState<SaleRow[]>([]);
@@ -82,8 +93,8 @@ export default function AdminVentesPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  const [draftFilters, setDraftFilters] = useState<Partial<Record<ColumnKey, string>>>({});
-  const [appliedFilters, setAppliedFilters] = useState<Partial<Record<ColumnKey, string>>>({});
+  const [draftFilters, setDraftFilters] = useState<Partial<Record<ColumnKey, string>>>(presetFilters);
+  const [appliedFilters, setAppliedFilters] = useState<Partial<Record<ColumnKey, string>>>(presetFilters);
 
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
@@ -254,6 +265,15 @@ export default function AdminVentesPage() {
         <StatCard label="Sans gagnant" value={counts.sans_gagnant} bg="#6b7280" labelColor="#e5e7eb" valueColor="#ffffff" />
         <StatCard label="Annulées" value={counts.annulee} bg="#b91c1c" labelColor="#fecaca" valueColor="#ffffff" />
       </div>
+
+      {appliedFilters.critical && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-2 rounded-full bg-[#13243c] px-3.5 py-1.5 text-[12px] font-bold text-white">
+            Ventes critiques · étape 1 ou 2, au-delà de 80 % du délai
+            <button type="button" aria-label="Retirer ce filtre" onClick={() => { setAppliedFilters((current) => { const next = { ...current }; delete next.critical; return next; }); setPage(1); }} className="text-white/80 hover:text-white">×</button>
+          </span>
+        </div>
+      )}
 
       {error && <Alert variant="error" className="mb-4">{error}</Alert>}
 
