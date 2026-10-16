@@ -1,5 +1,6 @@
 'use client';
 
+import PersonLink from '../components/PersonLink';
 import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { apiRequest } from '../api';
@@ -112,8 +113,8 @@ function AdminVentesPage() {
       case 'brand': return row.vehicle?.brand || '—';
       case 'model': return row.vehicle?.model || '—';
       case 'registrationNumber': return row.vehicle?.registrationNumber || '—';
-      case 'seller': return personName(row.seller);
-      case 'winner': return personName(row.winner);
+      case 'seller': return <PersonLink id={row.seller?._id} role="vendeur" name={personName(row.seller)} />;
+      case 'winner': return <PersonLink id={row.winner?._id} role="acheteur" name={personName(row.winner)} />;
       case 'session': return row.session?.name || '—';
       case 'amount': return formatEuros(row.amount);
       case 'currentStep': return stepLabel(row);

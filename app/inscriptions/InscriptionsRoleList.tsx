@@ -72,8 +72,14 @@ export default function InscriptionsRoleList({ role, title }: InscriptionsRoleLi
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  const [draftFilters, setDraftFilters] = useState<Partial<Record<ColumnKey, string>>>({});
-  const [appliedFilters, setAppliedFilters] = useState<Partial<Record<ColumnKey, string>>>({});
+  // Filtre de statut éventuellement transmis par un lien du tableau de bord (?statut=suspendu)
+  const initialFilters = (): Partial<Record<ColumnKey, string>> => {
+    if (typeof window === 'undefined') return {};
+    const statut = new URLSearchParams(window.location.search).get('statut');
+    return statut ? { status: statut } : {};
+  };
+  const [draftFilters, setDraftFilters] = useState<Partial<Record<ColumnKey, string>>>(initialFilters);
+  const [appliedFilters, setAppliedFilters] = useState<Partial<Record<ColumnKey, string>>>(initialFilters);
 
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
@@ -81,8 +87,6 @@ export default function InscriptionsRoleList({ role, title }: InscriptionsRoleLi
 
   useEffect(() => {
     setPage(1);
-    setDraftFilters({});
-    setAppliedFilters({});
   }, [role]);
 
   const updateDraftFilter = (key: ColumnKey, value: string) => setDraftFilters((current) => ({ ...current, [key]: value }));

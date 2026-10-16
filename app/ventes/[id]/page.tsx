@@ -1,5 +1,6 @@
 'use client';
 
+import PersonLink from '../../components/PersonLink';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { apiRequest } from '../../api';
@@ -552,7 +553,7 @@ export default function SaleDetailPage() {
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2">
                           <div>
-                            <div className="font-bold text-[#13243c]">{personName(offer.buyer)}</div>
+                            <div className="font-bold text-[#13243c]"><PersonLink id={offer.buyer?._id} role="acheteur" name={personName(offer.buyer)} /></div>
                             <div className="text-[11px] text-[#5a5e66]">{offer.buyer?.email || '—'}</div>
                           </div>
                           {isWinning && <span className="rounded-full bg-[#d9704f] px-2 py-1 text-[9px] font-extrabold uppercase tracking-wide text-white">Gagnante actuelle</span>}
@@ -591,7 +592,7 @@ export default function SaleDetailPage() {
                 <tr key={`${entry.rank}-${entry.buyer?._id}`} className="border-t border-[#efece3] text-[13px]">
                   <td className="px-5 py-3 font-mono font-bold">{entry.rank}</td>
                   <td className="px-5 py-3">
-                    <div className="font-semibold text-[#13243c]">{personName(entry.buyer)}</div>
+                    <div className="font-semibold text-[#13243c]"><PersonLink id={entry.buyer?._id} role="acheteur" name={personName(entry.buyer)} /></div>
                     <div className="text-[11px] text-[#5a5e66]">{entry.buyer?.email || '—'}</div>
                   </td>
                   <td className="px-5 py-3 font-semibold">{formatEuros(entry.amount)}</td>
@@ -704,6 +705,7 @@ function PartyCard({ title, party, accent, showBank = false }: { title: string; 
       <div className="mb-3 flex items-center gap-2">
         <span className="h-2.5 w-2.5 rounded-full" style={{ background: accent }} />
         <h2 className="text-[15px] font-bold text-[#13243c]">{title}</h2>
+        <span className="text-[13px] font-semibold text-[#13243c]">· <PersonLink id={party._id} role={title === 'Vendeur' ? 'vendeur' : 'acheteur'} name={personName(party)} /></span>
         {party.status && party.status !== 'valide' && (
           <span className="rounded-full bg-[#fdece4] px-2 py-0.5 text-[10px] font-bold uppercase text-[#b91c1c]">{party.status}</span>
         )}

@@ -17,6 +17,9 @@ interface DashboardStats {
     unsoldVehicles?: number;
     unsoldThreshold?: number;
     waitingVehicles?: number;
+    blockedAccounts?: number;
+    blockedBuyers?: number;
+    blockedSellers?: number;
     latePayments?: Array<{
       _id: string;
       vehicle: {
@@ -213,6 +216,21 @@ export default function Home() {
               <p className="text-[12px] text-gray-400 mt-auto group-hover:text-slate-600 transition font-medium">
                 → Affecter à une session
               </p>
+            </Link>
+
+            {/* Comptes suspendus ou bloqués : ouvre la liste des acheteurs (ou vendeurs) déjà filtrée */}
+            <Link href={(stats.pendingActions.blockedBuyers ?? 0) === 0 && (stats.pendingActions.blockedSellers ?? 0) > 0 ? '/inscriptions/vendeur?statut=suspendu' : '/inscriptions/acheteur?statut=suspendu'} className="bg-white rounded-[12px] border border-red-100 shadow-sm hover:shadow-md transition p-6 flex flex-col relative overflow-hidden group">
+              <div className="absolute top-0 left-0 w-1 h-full bg-[#b91c1c]"></div>
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-[14px] font-bold text-gray-600 uppercase tracking-wide">Comptes suspendus / bloqués</h3>
+                <span className="w-8 h-8 rounded-full bg-red-100 text-red-700 flex items-center justify-center font-bold text-[14px]">
+                  {stats.pendingActions.blockedAccounts ?? 0}
+                </span>
+              </div>
+              <p className="text-[12px] text-gray-500 mt-auto font-medium">
+                {stats.pendingActions.blockedBuyers ?? 0} acheteur(s) · {stats.pendingActions.blockedSellers ?? 0} vendeur(s)
+              </p>
+              <p className="text-[12px] text-gray-400 mt-1 group-hover:text-red-600 transition font-medium">→ Voir les comptes</p>
             </Link>
           </div>
         </section>

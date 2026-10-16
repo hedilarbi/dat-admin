@@ -1,5 +1,6 @@
 'use client';
 
+import PersonLink from '../components/PersonLink';
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../api';
 import StatCard from '../components/StatCard';
@@ -221,7 +222,7 @@ export default function AdminPaiementsPage() {
                     <td className="py-4 px-5">
                       {payment.user ? (
                         <div>
-                          <div className="font-bold text-[#13243c]">{payment.user.companyName || payment.user.name}</div>
+                          <div className="font-bold text-[#13243c]"><PersonLink id={payment.user.id} role={payment.user.role === 'vendeur' ? 'vendeur' : 'acheteur'} name={payment.user.companyName || payment.user.name} /></div>
                           <div className="text-[11px] text-[#7a756a]">{payment.user.email}</div>
                         </div>
                       ) : (

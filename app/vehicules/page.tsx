@@ -1,5 +1,6 @@
 'use client';
 
+import PersonLink from '../components/PersonLink';
 import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -241,12 +242,12 @@ function AdminVehiculesPage() {
       case 'brand': return row.brand || '—';
       case 'model': return row.model || '—';
       case 'registrationNumber': return row.registrationNumber || '—';
-      case 'seller': return personName(row.seller);
+      case 'seller': return <PersonLink id={row.seller?._id} role="vendeur" name={personName(row.seller)} />;
       case 'lotNumber': return row.lotNumber ? `#${row.lotNumber}` : '—';
       case 'saleState': return <Badge style={SALE_STATE_BADGES[row.saleState]} className="py-1.5" />;
       case 'session': return row.session?.name || '—';
       case 'amount': return formatEuros(row.sale?.amount);
-      case 'winner': return row.sale?.winner ? personName(row.sale.winner) : '—';
+      case 'winner': return row.sale?.winner ? <PersonLink id={row.sale.winner._id} role="acheteur" name={personName(row.sale.winner)} /> : '—';
       case 'reservePrice': return formatEuros(row.reservePrice);
       case 'offerCount': return ['en_enchere', 'decision_vendeur', 'en_cours_vente'].includes(row.saleState) ? (row.offerCount ?? 0) : '—';
       case 'listingCount': return row.listingCount ?? 0;
