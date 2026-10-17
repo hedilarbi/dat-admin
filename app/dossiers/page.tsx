@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { apiRequest } from '../api';
 import Alert from '../components/Alert';
 import SkeletonRows from '../components/SkeletonRows';
@@ -57,8 +57,17 @@ interface DossierCounts {
 // Les dossiers validés sont des véhicules : ils sont dans l'onglet « Véhicules ».
 const NOT_VALIDATED = 'valide';
 
-export default function AdminDossiersPage() {
+export default function AdminDossiersPageWithFilters() {
+  return (
+    <Suspense fallback={null}>
+      <AdminDossiersPage />
+    </Suspense>
+  );
+}
+
+function AdminDossiersPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [dossiers, setDossiers] = useState<VehicleDossier[]>([]);
   const [counts, setCounts] = useState<DossierCounts>({ enAttente: 0, correction: 0, refuse: 0 });
@@ -67,13 +76,15 @@ export default function AdminDossiersPage() {
   const [totalPages, setTotalPages] = useState(1);
 
   // Filtre de statut transmis par une carte du tableau de bord (?statut=attente)
-  const initialFilters = (): Partial<Record<ColumnKey, string>> => {
-    if (typeof window === 'undefined') return {};
-    const statut = new URLSearchParams(window.location.search).get('statut');
-    return statut ? { status: statut } : {};
-  };
-  const [draftFilters, setDraftFilters] = useState<Partial<Record<ColumnKey, string>>>(initialFilters);
-  const [appliedFilters, setAppliedFilters] = useState<Partial<Record<ColumnKey, string>>>(initialFilters);
+  const presetStatus = searchParams.get('statut');
+  const [draftFilters, setDraftFilters] = useState<Partial<Record<ColumnKey, string>>>(presetStatus ? { status: presetStatus } : {});
+  const [appliedFilters, setAppliedFilters] = useState<Partial<Record<ColumnKey, string>>>(presetStatus ? { status: presetStatus } : {});
+  useEffect(() => {
+    if (!presetStatus) return;
+    setDraftFilters((current) => ({ ...current, status: presetStatus }));
+    setAppliedFilters((current) => ({ ...current, status: presetStatus }));
+    setPage(1);
+  }, [presetStatus]);
 
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
