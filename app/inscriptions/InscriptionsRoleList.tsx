@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { apiRequest } from '../api';
 import PageHeader from '../components/PageHeader';
 import Alert from '../components/Alert';
@@ -63,8 +63,17 @@ interface InscriptionsRoleListProps {
   title: string;
 }
 
-export default function InscriptionsRoleList({ role, title }: InscriptionsRoleListProps) {
+export default function InscriptionsRoleList(props: InscriptionsRoleListProps) {
+  return (
+    <Suspense fallback={null}>
+      <InscriptionsRoleListContent {...props} />
+    </Suspense>
+  );
+}
+
+function InscriptionsRoleListContent({ role, title }: InscriptionsRoleListProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [counts, setCounts] = useState<UserCounts>(EMPTY_COUNTS);
@@ -72,14 +81,16 @@ export default function InscriptionsRoleList({ role, title }: InscriptionsRoleLi
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Filtre de statut éventuellement transmis par un lien du tableau de bord (?statut=suspendu)
-  const initialFilters = (): Partial<Record<ColumnKey, string>> => {
-    if (typeof window === 'undefined') return {};
-    const statut = new URLSearchParams(window.location.search).get('statut');
-    return statut ? { status: statut } : {};
-  };
-  const [draftFilters, setDraftFilters] = useState<Partial<Record<ColumnKey, string>>>(initialFilters);
-  const [appliedFilters, setAppliedFilters] = useState<Partial<Record<ColumnKey, string>>>(initialFilters);
+  // Filtre de statut transmis par une carte du tableau de bord (?statut=attente, ?statut=suspendu)
+  const presetStatus = searchParams.get('statut');
+  const [draftFilters, setDraftFilters] = useState<Partial<Record<ColumnKey, string>>>(presetStatus ? { status: presetStatus } : {});
+  const [appliedFilters, setAppliedFilters] = useState<Partial<Record<ColumnKey, string>>>(presetStatus ? { status: presetStatus } : {});
+  useEffect(() => {
+    if (!presetStatus) return;
+    setDraftFilters((current) => ({ ...current, status: presetStatus }));
+    setAppliedFilters((current) => ({ ...current, status: presetStatus }));
+    setPage(1);
+  }, [presetStatus, role]);
 
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
