@@ -66,8 +66,14 @@ export default function AdminDossiersPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  const [draftFilters, setDraftFilters] = useState<Partial<Record<ColumnKey, string>>>({});
-  const [appliedFilters, setAppliedFilters] = useState<Partial<Record<ColumnKey, string>>>({});
+  // Filtre de statut transmis par une carte du tableau de bord (?statut=attente)
+  const initialFilters = (): Partial<Record<ColumnKey, string>> => {
+    if (typeof window === 'undefined') return {};
+    const statut = new URLSearchParams(window.location.search).get('statut');
+    return statut ? { status: statut } : {};
+  };
+  const [draftFilters, setDraftFilters] = useState<Partial<Record<ColumnKey, string>>>(initialFilters);
+  const [appliedFilters, setAppliedFilters] = useState<Partial<Record<ColumnKey, string>>>(initialFilters);
 
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
@@ -227,7 +233,7 @@ export default function AdminDossiersPage() {
   const renderFilterInput = (column: TableColumn) => {
     const value = draftFilters[column.key] || '';
     const className = "mt-2 h-9 w-full rounded-[7px] border border-[#dcd7cb] bg-white px-2 text-[12px] font-normal normal-case tracking-normal text-[#13243c] focus:border-[#13243c] focus:outline-none";
-    if (column.key === 'status') return <select aria-label={`Filtrer par ${column.label}`} value={value} onChange={(event) => updateDraftFilter(column.key, event.target.value)} className={className}><option value="">Tous</option><option value="brouillon">Brouillon</option><option value="soumis">Soumis</option><option value="en_attente_validation">En attente de validation</option><option value="correction_demandee">Correction demandée</option><option value="refuse">Rejeté</option><option value="annule_vendeur">Annulé vendeur</option></select>;
+    if (column.key === 'status') return <select aria-label={`Filtrer par ${column.label}`} value={value} onChange={(event) => updateDraftFilter(column.key, event.target.value)} className={className}><option value="">Tous</option><option value="attente">À traiter (soumis + en attente)</option><option value="brouillon">Brouillon</option><option value="soumis">Soumis</option><option value="en_attente_validation">En attente de validation</option><option value="correction_demandee">Correction demandée</option><option value="refuse">Rejeté</option><option value="annule_vendeur">Annulé vendeur</option></select>;
     if (column.key === 'registrationCardAvailable') return <select aria-label={`Filtrer par ${column.label}`} value={value} onChange={(event) => updateDraftFilter(column.key, event.target.value)} className={className}><option value="">Toutes</option><option value="true">Oui</option><option value="false">Non</option></select>;
     if (column.key === 'procedure') return <select aria-label={`Filtrer par ${column.label}`} value={value} onChange={(event) => updateDraftFilter(column.key, event.target.value)} className={className}><option value="">Toutes</option>{['VEI', 'VE', 'TNR', 'RIV / VE', 'RIV'].map((procedure) => <option key={procedure} value={procedure}>{procedure}</option>)}</select>;
     const type = column.key === 'submittedAt' ? 'date' : ['year', 'mileage'].includes(column.key) ? 'number' : 'text';

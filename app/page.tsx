@@ -116,7 +116,7 @@ export default function Home() {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
             {/* Acheteurs en attente */}
-            <Link href="/inscriptions/acheteur" className="bg-white rounded-[12px] border border-red-100 shadow-sm hover:shadow-md transition p-6 flex flex-col relative overflow-hidden group">
+            <Link href="/inscriptions/acheteur?statut=attente" className="bg-white rounded-[12px] border border-red-100 shadow-sm hover:shadow-md transition p-6 flex flex-col relative overflow-hidden group">
               <div className="absolute top-0 left-0 w-1 h-full bg-red-500"></div>
               <div className="flex justify-between items-start mb-4">
                 <h3 className="text-[14px] font-bold text-gray-600 uppercase tracking-wide">Inscriptions acheteurs en attente</h3>
@@ -130,7 +130,7 @@ export default function Home() {
             </Link>
 
             {/* Vendeurs en attente */}
-            <Link href="/inscriptions/vendeur" className="bg-white rounded-[12px] border border-red-100 shadow-sm hover:shadow-md transition p-6 flex flex-col relative overflow-hidden group">
+            <Link href="/inscriptions/vendeur?statut=attente" className="bg-white rounded-[12px] border border-red-100 shadow-sm hover:shadow-md transition p-6 flex flex-col relative overflow-hidden group">
               <div className="absolute top-0 left-0 w-1 h-full bg-red-500"></div>
               <div className="flex justify-between items-start mb-4">
                 <h3 className="text-[14px] font-bold text-gray-600 uppercase tracking-wide">Inscriptions vendeurs en attente</h3>
@@ -144,7 +144,7 @@ export default function Home() {
             </Link>
 
             {/* Dossiers en attente */}
-            <Link href="/dossiers" className="bg-white rounded-[12px] border border-orange-100 shadow-sm hover:shadow-md transition p-6 flex flex-col relative overflow-hidden group">
+            <Link href="/dossiers?statut=attente" className="bg-white rounded-[12px] border border-orange-100 shadow-sm hover:shadow-md transition p-6 flex flex-col relative overflow-hidden group">
               <div className="absolute top-0 left-0 w-1 h-full bg-[#d9704f]"></div>
               <div className="flex justify-between items-start mb-4">
                 <h3 className="text-[14px] font-bold text-gray-600 uppercase tracking-wide">Dossiers à valider</h3>
@@ -158,7 +158,7 @@ export default function Home() {
             </Link>
 
             {/* Support en attente */}
-            <Link href="/support" className="bg-white rounded-[12px] border border-blue-100 shadow-sm hover:shadow-md transition p-6 flex flex-col relative overflow-hidden group">
+            <Link href="/support?statut=attente" className="bg-white rounded-[12px] border border-blue-100 shadow-sm hover:shadow-md transition p-6 flex flex-col relative overflow-hidden group">
               <div className="absolute top-0 left-0 w-1 h-full bg-[#13243c]"></div>
               <div className="flex justify-between items-start mb-4">
                 <h3 className="text-[14px] font-bold text-gray-600 uppercase tracking-wide">Tickets non lus</h3>

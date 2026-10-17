@@ -40,7 +40,11 @@ export default function AdminSupportPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [ticketSearch, setTicketSearch] = useState('');
-  const [ticketStatusFilter, setTicketStatusFilter] = useState<string>('all');
+  const [ticketStatusFilter, setTicketStatusFilter] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'all';
+    const statut = new URLSearchParams(window.location.search).get('statut');
+    return statut && ['attente', 'attente_user', 'cloturee'].includes(statut) ? statut : 'all';
+  });
 
   const [replyText, setReplyText] = useState('');
   const [replyFile, setReplyFile] = useState('');
