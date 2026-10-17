@@ -30,6 +30,8 @@ interface SessionData {
   status: 'open' | 'upcoming' | 'closed' | 'annulee' | 'programmee' | 'active' | 'cloturee';
   vehicleCount: number;
   vehicles?: VehicleDossier[];
+  /** Véhicules dont le vendeur a retenu une offre avant la clôture (ils ne sont plus rattachés à la session) */
+  soldVehicles?: VehicleDossier[];
   /** Session clôturée : résultat de chaque véhicule, y compris les invendus revenus en attente */
   closureResults?: ClosureResult[];
   commission?: SessionCommission;
@@ -808,7 +810,7 @@ export default function AdminSessionsPage() {
                   />
                 </label>
                 <div className="font-semibold text-[12px] leading-none mt-1.5" style={{ color: statusMeta(selectedSession.status).color }}>
-                  {statusMeta(selectedSession.status).label} · {selectedSession.vehicles?.length || selectedSession.vehicleCount || 0} véhicule(s) inscrit(s)
+                  {statusMeta(selectedSession.status).label} · {(selectedSession.vehicles?.length || 0) + (selectedSession.soldVehicles?.length || 0) || selectedSession.vehicleCount || 0} véhicule(s) inscrit(s)
                 </div>
               </div>
 
@@ -1006,6 +1008,51 @@ export default function AdminSessionsPage() {
                     ))
                   )}
                 </div>
+
+                {(selectedSession.soldVehicles || []).length > 0 && (
+                  <>
+                    <div className="p-4 sm:p-[8px_26px_12px]">
+                      <div className="font-bold text-[11px] leading-none tracking-[0.06em] uppercase text-[#2f6f4f]">
+                        Offre retenue avant la clôture ({selectedSession.soldVehicles?.length})
+                      </div>
+                    </div>
+                    <div className="p-4 sm:p-[4px_26px_20px] divide-y divide-[#f1efe8]">
+                      {(selectedSession.soldVehicles || []).map((v) => (
+                        <div key={v._id} className="flex items-center gap-3 py-3">
+                          <VehicleCover vehicle={v} />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-[13px] leading-snug text-[#13243c] truncate">
+                              {[v.brand, v.model].filter(Boolean).join(' ') || 'Sans nom'}
+                            </div>
+                            <div className="font-normal text-[11px] leading-snug text-[#5a5e66] mt-0.5 truncate">
+                              {v.lotNumber ? <span className="font-mono font-semibold text-[#b3893f]">Lot #{v.lotNumber}</span> : null}
+                              {v.lotNumber ? ' · ' : ''}{v.registrationNumber || v.vin || '—'} · {v.seller?.companyName || 'Vendeur'}
+                            </div>
+                            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-[#e9f4ee] px-2 py-0.5 text-[11px] font-bold text-[#2f6f4f]">
+                                Retenue · {v.sale?.amount != null ? `${v.sale.amount.toLocaleString('fr-FR')} €` : '—'}{v.sale?.winnerName ? ` · ${v.sale.winnerName}` : ''}
+                              </span>
+                              {v.sale && (
+                                <a href={`/ventes/${v.sale.id}`} target="_blank" rel="noopener noreferrer" className="text-[11px] font-semibold text-[#d9704f] hover:underline">
+                                  Voir la vente
+                                </a>
+                              )}
+                              {(v.offerCount || 0) > 0 && (
+                                <button type="button" onClick={() => setOffersVehicleId(v._id)} className="text-[11px] font-semibold text-[#d9704f] hover:underline">
+                                  Toutes les offres ({v.offerCount})
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <div className="font-semibold text-[12px] leading-none font-mono text-[#13243c] shrink-0">
+                            {v.reservePrice ? `${v.reservePrice.toLocaleString('fr-FR')} €` : '—'}
+                          </div>
+                          <button type="button" onClick={() => openVehicleDetail(v)} className="w-9 h-9 rounded-[8px] border border-[#cbd5e1] flex items-center justify-center text-[#13243c] hover:bg-slate-50" title="Voir la fiche du véhicule"><Search size={16} /></button>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
                 </>
                 )}
               </div>

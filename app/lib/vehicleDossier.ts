@@ -76,6 +76,8 @@ export interface VehicleDossier {
   /** Détail d'une session : trois meilleures offres actives et nombre total d'offres actives. */
   offerCount?: number;
   topOffers?: Array<{ _id: string; amount: number; buyerName: string; at: string; modified: boolean }>;
+  /** Détail d'une session : vente engagée quand le vendeur a retenu une offre avant la clôture. */
+  sale?: { id: string; status: string; amount: number | null; winnerId: string | null; winnerName: string | null } | null;
   brand?: string;
   model?: string;
   year?: number;
